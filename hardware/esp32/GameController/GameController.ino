@@ -9,6 +9,11 @@ const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 const char* serverUrl = "http://your-server:3000/api";
 
+// Game configuration
+const int GAME_TYPE_FOOSBALL = 2;
+const int GAME_TYPE_CHESS = 1;
+int currentGameType = GAME_TYPE_FOOSBALL;  // Default to foosball
+
 // Pin definitions
 #define SS_PIN    5  // SDA pin for RFID
 #define RST_PIN   22 // RST pin for RFID
@@ -76,7 +81,13 @@ void printTestInstructions() {
   Serial.println("5. Reset game:         reset");
   Serial.println("6. Show status:        status");
   Serial.println("7. Toggle WiFi:        wifi");
-  Serial.println("8. Help:               help");
+  Serial.println("8. Set game type:      type <1=chess|2=foosball>");
+  Serial.println("9. Help:               help");
+  Serial.println("\nAPI Endpoints Used:");
+  Serial.println("- GET  /users/rfid/{uid}         - Get user info");
+  Serial.println("- POST /matches/start            - Start new game");
+  Serial.println("- POST /matches/{id}/score       - Update score");
+  Serial.println("- POST /matches/{id}/end         - End game");
   Serial.println("=========================================");
 }
 
@@ -112,6 +123,15 @@ void handleSerialCommand() {
     else if (inputString == "wifi") {
       testMode = !testMode;
       Serial.println(testMode ? "Test mode enabled" : "Normal mode enabled");
+    }
+    else if (inputString.startsWith("type ")) {
+      int type = inputString.substring(5).toInt();
+      if (type == GAME_TYPE_CHESS || type == GAME_TYPE_FOOSBALL) {
+        currentGameType = type;
+        Serial.println("Game type set to: " + String(type == GAME_TYPE_CHESS ? "Chess" : "Foosball"));
+      } else {
+        Serial.println("Invalid game type. Use 1 for Chess or 2 for Foosball");
+      }
     }
     else if (inputString == "help") {
       printTestInstructions();
@@ -194,6 +214,8 @@ void printGameStatus() {
       Serial.println("Game ended");
       break;
   }
+  
+  Serial.println("Game Type: " + String(currentGameType == GAME_TYPE_CHESS ? "Chess" : "Foosball"));
   
   if (player1Uid != "") {
     Serial.println("Player 1 UID: " + player1Uid);
@@ -282,7 +304,7 @@ bool startGame(String p1Uid, String p2Uid) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
   JsonDocument doc;
-  doc["game_type"] = 2; // 2 for foosball
+  doc["game_type"] = currentGameType;
   doc["player1_uid"] = p1Uid;
   doc["player2_uid"] = p2Uid;
 
@@ -292,6 +314,8 @@ bool startGame(String p1Uid, String p2Uid) {
   HTTPClient http;
   http.begin(String(serverUrl) + "/matches/start");
   http.addHeader("Content-Type", "application/json");
+  
+  Serial.println("Starting new game with type: " + String(currentGameType == GAME_TYPE_CHESS ? "Chess" : "Foosball"));
   
   int httpCode = http.POST(jsonString);
   if (httpCode == HTTP_CODE_OK) {

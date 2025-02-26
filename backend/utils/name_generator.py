@@ -1,17 +1,17 @@
 import random
 
 ADJECTIVES = [
-    "Happy", "Bouncy", "Clever", "Dazzling", "Eager",
-    "Fancy", "Gentle", "Heroic", "Iconic", "Jolly",
-    "Kind", "Lucky", "Mighty", "Noble", "Peppy",
-    "Quick", "Radiant", "Super", "Trusty", "Upbeat"
+    "Glad", "Morsom", "Smart", "Flink", "Ivrig",
+    "Fin", "Snill", "Modig", "Sterk", "Blid",
+    "Grei", "Heldig", "Mektig", "Flott", "Rask",
+    "Kvikk", "Lystig", "Super", "Trygg", "Munter"
 ]
 
 CHARACTERS = [
-    "Pikachu", "Mario", "Sonic", "Yoshi", "Kirby",
-    "Snoopy", "Mickey", "SpongeBob", "Totoro", "Stitch",
-    "Groot", "Baymax", "Doraemon", "Garfield", "Goku",
-    "Pooh", "Simba", "Aang", "Charmander", "Chopper"
+    "Pikachu", "Mario", "Ivo", "Kaptein", "Flåklypa",
+    "Snoopy", "Mickey", "Fantorangen", "Karius", "Baktus",
+    "Groot", "Nøste", "Pompel", "Garfield", "Goku",
+    "Pilt", "Ludvig", "Thorbjørn", "Charmander", "Plumbo"
 ]
 
 def generate_username():

@@ -5,9 +5,9 @@
 #include <SPI.h>
 
 // Network configuration
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverUrl = "http://your-server:3000/api";
+const char* ssid = "YourWiFiSSID";
+const char* password = "YourWiFiPassword";
+const char* serverUrl = "http://your-server.com";
 
 // Game configuration
 const int GAME_TYPE_FOOSBALL = 2;
@@ -17,10 +17,11 @@ int currentGameType = GAME_TYPE_FOOSBALL;  // Default to foosball
 // Pin definitions
 #define SS_PIN    5  // SDA pin for RFID
 #define RST_PIN   22 // RST pin for RFID
-#define BTN_P1    12 // Score button for Player 1
-#define BTN_P2    14 // Score button for Player 2
-#define LED_WIFI  2  // WiFi status LED
-#define LED_GAME  4  // Game status LED
+#define LED_RED   25  // Error/Not Ready
+#define LED_GREEN 26  // Success/Ready
+#define LED_BLUE  27  // Processing
+#define BTN_P1    32  // Score button for Player 1
+#define BTN_P2    33  // Score button for Player 2
 
 // Test mode configuration
 bool testMode = true;  // Set to true to enable test mode
@@ -29,24 +30,25 @@ bool stringComplete = false;
 
 // Game states
 enum GameState {
-  WAITING_P1,
-  WAITING_P2,
+  WAITING_CARD,
+  PROCESSING_CARD,
+  SHOWING_NEW_USER,
   GAME_ACTIVE,
   GAME_ENDED
 };
 
 // Global variables
 MFRC522 rfid(SS_PIN, RST_PIN);
-GameState currentState = WAITING_P1;
+GameState currentState = WAITING_CARD;
 String currentMatchId = "";
 String player1Uid = "";
 String player2Uid = "";
 int player1Score = 0;
 int player2Score = 0;
-unsigned long lastWifiCheck = 0;
-unsigned long lastButtonCheck = 0;
-bool buttonP1State = false;
-bool buttonP2State = false;
+unsigned long lastCardCheck = 0;
+const int cardCheckDelay = 1000;  // Time between card checks
+String currentUserName = "";
+bool isNewUser = false;
 
 void setup() {
   // Initialize serial communication
@@ -54,10 +56,11 @@ void setup() {
   inputString.reserve(200);
   
   // Initialize pins
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   pinMode(BTN_P1, INPUT_PULLUP);
   pinMode(BTN_P2, INPUT_PULLUP);
-  pinMode(LED_WIFI, OUTPUT);
-  pinMode(LED_GAME, OUTPUT);
   
   if (!testMode) {
     // Initialize SPI and RFID
@@ -65,10 +68,13 @@ void setup() {
     rfid.PCD_Init();
     
     // Connect to WiFi
-    connectToWifi();
+    connectToWiFi();
   } else {
     printTestInstructions();
   }
+  
+  // Initial LED state
+  setLEDState(LED_RED);  // Start with red LED (not ready)
 }
 
 void printTestInstructions() {
@@ -146,22 +152,9 @@ void handleSerialCommand() {
 }
 
 void handleTestRFID(String uid) {
-  if (currentState == WAITING_P1) {
-    player1Uid = uid;
-    Serial.println("Player 1 registered with UID: " + uid);
-    currentState = WAITING_P2;
-  }
-  else if (currentState == WAITING_P2) {
-    if (uid != player1Uid) {
-      player2Uid = uid;
-      Serial.println("Player 2 registered with UID: " + uid);
-      currentState = GAME_ACTIVE;
-      Serial.println("Game started!");
-    } else {
-      Serial.println("Error: Player 2 cannot use the same card as Player 1");
-    }
-  }
-  else {
+  if (currentState == WAITING_CARD) {
+    handleWaitingCard();
+  } else {
     Serial.println("Cannot register players during active game");
   }
 }
@@ -189,7 +182,7 @@ void handleTestScore(int player) {
 }
 
 void resetGame() {
-  currentState = WAITING_P1;
+  currentState = WAITING_CARD;
   currentMatchId = "";
   player1Uid = "";
   player2Uid = "";
@@ -201,11 +194,14 @@ void printGameStatus() {
   Serial.println("\n=== Game Status ===");
   Serial.print("State: ");
   switch (currentState) {
-    case WAITING_P1:
-      Serial.println("Waiting for Player 1");
+    case WAITING_CARD:
+      Serial.println("Waiting for card");
       break;
-    case WAITING_P2:
-      Serial.println("Waiting for Player 2");
+    case PROCESSING_CARD:
+      Serial.println("Processing card");
+      break;
+    case SHOWING_NEW_USER:
+      Serial.println("Showing new user");
       break;
     case GAME_ACTIVE:
       Serial.println("Game in progress");
@@ -242,92 +238,214 @@ void serialEvent() {
   }
 }
 
-void connectToWifi() {
+void connectToWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  
   Serial.print("Connecting to WiFi");
   WiFi.begin(ssid, password);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    digitalWrite(LED_WIFI, !digitalRead(LED_WIFI));
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
+    attempts++;
+    setLEDState(LED_RED);
+    delay(250);
+    setLEDState(-1);
+    delay(250);
   }
   
-  digitalWrite(LED_WIFI, HIGH);
-  Serial.println("\nConnected to WiFi");
-}
-
-void checkWifiConnection() {
-  if (millis() - lastWifiCheck >= 30000) { // Check every 30 seconds
-    lastWifiCheck = millis();
-    if (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(LED_WIFI, LOW);
-      connectToWifi();
-    }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConnected to WiFi");
+    setLEDState(LED_GREEN);
+  } else {
+    Serial.println("\nFailed to connect to WiFi");
+    setLEDState(LED_RED);
   }
 }
 
-String readRFIDCard() {
-  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial())
-    return "";
-
-  String uid = "";
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
-    uid += String(rfid.uid.uidByte[i], HEX);
-  }
+void handleWaitingCard() {
+  setLEDState(LED_GREEN);  // Ready to read card
   
+  if (millis() - lastCardCheck < cardCheckDelay) return;
+  
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return;
+  
+  String uid = getCardUID();
+  setLEDState(LED_BLUE);  // Processing
+  currentState = PROCESSING_CARD;
+  
+  // Authenticate card with server
+  authenticateCard(uid);
+  
+  lastCardCheck = millis();
   rfid.PICC_HaltA();
   rfid.PCD_StopCrypto1();
+}
+
+void handleProcessingCard() {
+  // This state is mainly handled by the authenticateCard callback
+  // The LED is already blue from the previous state
+  delay(100);  // Small delay to prevent busy waiting
+}
+
+void handleShowingNewUser() {
+  // Blink blue LED to indicate new user
+  static unsigned long lastBlink = 0;
+  const int blinkInterval = 500;
   
+  if (millis() - lastBlink >= blinkInterval) {
+    static bool ledState = false;
+    setLEDState(ledState ? LED_BLUE : -1);
+    ledState = !ledState;
+    lastBlink = millis();
+  }
+  
+  // Show temporary username for 5 seconds
+  static unsigned long showStart = millis();
+  if (millis() - showStart >= 5000) {
+    currentState = GAME_ACTIVE;
+    setLEDState(LED_GREEN);
+  }
+  
+  // Print temporary credentials to Serial for testing
+  if (isNewUser) {
+    Serial.println("New user created!");
+    Serial.println("Username: " + currentUserName);
+    Serial.println("Default password: 1111");
+    isNewUser = false;  // Reset flag after showing once
+  }
+}
+
+void authenticateCard(String uid) {
+  HTTPClient http;
+  String url = String(serverUrl) + "/api/rfid/auth";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  
+  // Create JSON payload
+  JsonDocument doc;
+  doc["rfid_uid"] = uid;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  int httpCode = http.POST(jsonString);
+  
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    JsonDocument response;
+    deserializeJson(response, payload);
+    
+    currentUserName = response["user"]["username"].as<String>();
+    bool isNewUser = response["is_new_user"].as<bool>();
+    
+    if (isNewUser) {
+      currentState = SHOWING_NEW_USER;
+      this->isNewUser = true;  // Set flag to show credentials once
+    } else {
+      currentState = GAME_ACTIVE;
+      setLEDState(LED_GREEN);
+    }
+    
+    Serial.println("Authenticated as: " + currentUserName);
+  } else {
+    Serial.println("Authentication failed");
+    setLEDState(LED_RED);
+    delay(1000);
+    currentState = WAITING_CARD;
+  }
+  
+  http.end();
+}
+
+void handleGameActive() {
+  // Handle button inputs with debouncing
+  static unsigned long lastButtonCheck = 0;
+  const int debounceDelay = 50;
+  
+  if (millis() - lastButtonCheck < debounceDelay) return;
+  
+  bool p1 = !digitalRead(BTN_P1);
+  bool p2 = !digitalRead(BTN_P2);
+  
+  if (p1) {
+    player1Score++;
+    updateScore();
+  }
+  if (p2) {
+    player2Score++;
+    updateScore();
+  }
+  
+  // Check for game end
+  if (player1Score >= 10 || player2Score >= 10) {
+    currentState = GAME_ENDED;
+  }
+  
+  lastButtonCheck = millis();
+}
+
+void handleGameEnded() {
+  digitalWrite(LED_GREEN, LOW);
+  int winner = player1Score > player2Score ? 1 : 2;
+  if (endGame(winner)) {
+    Serial.println("Game ended! Winner: Player " + String(winner));
+    digitalWrite(LED_GREEN, LOW);
+  }
+}
+
+void handleGameState() {
+  switch (currentState) {
+    case WAITING_CARD:
+      handleWaitingCard();
+      break;
+    case PROCESSING_CARD:
+      handleProcessingCard();
+      break;
+    case SHOWING_NEW_USER:
+      handleShowingNewUser();
+      break;
+    case GAME_ACTIVE:
+      handleGameActive();
+      break;
+    case GAME_ENDED:
+      handleGameEnded();
+      break;
+  }
+}
+
+void loop() {
+  if (testMode) {
+    handleSerialCommand();
+  } else {
+    // Check WiFi connection
+    if (WiFi.status() != WL_CONNECTED) {
+      connectToWiFi();
+      return;
+    }
+    handleGameState();
+  }
+  delay(10);
+}
+
+String getCardUID() {
+  String uid = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    uid += (rfid.uid.uidByte[i] < 0x10 ? "0" : "");
+    uid += String(rfid.uid.uidByte[i], HEX);
+  }
+  uid.toUpperCase();
   return uid;
 }
 
-bool getUserFromRFID(String uid, JsonDocument& userData) {
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  HTTPClient http;
-  http.begin(String(serverUrl) + "/users/rfid/" + uid);
-  
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK) {
-    String payload = http.getString();
-    DeserializationError error = deserializeJson(userData, payload);
-    http.end();
-    return !error;
+void setLEDState(int led) {
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, LOW);
+  if (led >= 0) {
+    digitalWrite(led, HIGH);
   }
-  
-  http.end();
-  return false;
-}
-
-bool startGame(String p1Uid, String p2Uid) {
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  JsonDocument doc;
-  doc["game_type"] = currentGameType;
-  doc["player1_uid"] = p1Uid;
-  doc["player2_uid"] = p2Uid;
-
-  String jsonString;
-  serializeJson(doc, jsonString);
-
-  HTTPClient http;
-  http.begin(String(serverUrl) + "/matches/start");
-  http.addHeader("Content-Type", "application/json");
-  
-  Serial.println("Starting new game with type: " + String(currentGameType == GAME_TYPE_CHESS ? "Chess" : "Foosball"));
-  
-  int httpCode = http.POST(jsonString);
-  if (httpCode == HTTP_CODE_OK) {
-    JsonDocument response;
-    deserializeJson(response, http.getString());
-    currentMatchId = response["match_id"].as<String>();
-    http.end();
-    return true;
-  }
-  
-  http.end();
-  return false;
 }
 
 bool updateScore() {
@@ -366,7 +484,7 @@ bool endGame(int winner) {
   http.end();
   
   if (httpCode == HTTP_CODE_OK) {
-    currentState = WAITING_P1;
+    currentState = WAITING_CARD;
     currentMatchId = "";
     player1Uid = "";
     player2Uid = "";
@@ -376,99 +494,4 @@ bool endGame(int winner) {
   }
   
   return false;
-}
-
-void handleWaitingP1() {
-  digitalWrite(LED_GAME, millis() % 1000 < 500);
-  String uid = readRFIDCard();
-  if (uid != "") {
-    JsonDocument userData;
-    if (getUserFromRFID(uid, userData)) {
-      player1Uid = uid;
-      Serial.println("Player 1: " + userData["username"].as<String>());
-      currentState = WAITING_P2;
-    }
-  }
-}
-
-void handleWaitingP2() {
-  digitalWrite(LED_GAME, millis() % 500 < 250);
-  String uid = readRFIDCard();
-  if (uid != "" && uid != player1Uid) {
-    JsonDocument userData;
-    if (getUserFromRFID(uid, userData)) {
-      player2Uid = uid;
-      Serial.println("Player 2: " + userData["username"].as<String>());
-      if (startGame(player1Uid, player2Uid)) {
-        currentState = GAME_ACTIVE;
-        digitalWrite(LED_GAME, HIGH);
-      }
-    }
-  }
-}
-
-void handleGameActive() {
-  // Handle button inputs with debouncing
-  if (millis() - lastButtonCheck >= 50) {
-    lastButtonCheck = millis();
-    
-    bool p1 = !digitalRead(BTN_P1);
-    bool p2 = !digitalRead(BTN_P2);
-    
-    if (p1 && !buttonP1State) {
-      player1Score++;
-      updateScore();
-    }
-    if (p2 && !buttonP2State) {
-      player2Score++;
-      updateScore();
-    }
-    
-    buttonP1State = p1;
-    buttonP2State = p2;
-    
-    // Check for game end
-    if (player1Score >= 10 || player2Score >= 10) {
-      currentState = GAME_ENDED;
-    }
-  }
-}
-
-void handleGameEnded() {
-  digitalWrite(LED_GAME, millis() % 200 < 100);
-  int winner = player1Score > player2Score ? 1 : 2;
-  if (endGame(winner)) {
-    Serial.println("Game ended! Winner: Player " + String(winner));
-    digitalWrite(LED_GAME, LOW);
-  }
-}
-
-void handleGameState() {
-  switch (currentState) {
-    case WAITING_P1:
-      handleWaitingP1();
-      break;
-      
-    case WAITING_P2:
-      handleWaitingP2();
-      break;
-      
-    case GAME_ACTIVE:
-      handleGameActive();
-      break;
-      
-    case GAME_ENDED:
-      handleGameEnded();
-      break;
-  }
-}
-
-void loop() {
-  if (testMode) {
-    handleSerialCommand();
-  } else {
-    checkWifiConnection();
-    handleGameState();
-  }
-  delay(10);
 } 

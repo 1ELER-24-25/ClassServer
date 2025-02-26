@@ -338,11 +338,11 @@ void authenticateCard(String uid) {
     deserializeJson(response, payload);
     
     currentUserName = response["user"]["username"].as<String>();
-    bool isNewUser = response["is_new_user"].as<bool>();
+    bool newUser = response["is_new_user"].as<bool>();
     
-    if (isNewUser) {
+    if (newUser) {
       currentState = SHOWING_NEW_USER;
-      this->isNewUser = true;  // Set flag to show credentials once
+      isNewUser = true;  // Set flag to show credentials once
     } else {
       currentState = GAME_ACTIVE;
       setLEDState(LED_GREEN);

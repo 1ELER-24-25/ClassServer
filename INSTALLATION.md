@@ -119,6 +119,124 @@ This guide provides comprehensive instructions for setting up the ClassServer pr
    . ./export.sh
    ```
 
+## Automated Ubuntu Server Setup
+
+For Ubuntu 22.04 LTS servers, we provide an automated installation script that handles all the setup requirements.
+
+### Using the Setup Script
+
+1. **Download and make the script executable**:
+   ```bash
+   chmod +x scripts/setup_ubuntu_server.sh
+   ```
+
+2. **Run the script with sudo**:
+   ```bash
+   sudo ./scripts/setup_ubuntu_server.sh
+   ```
+
+### What the Script Does
+
+The setup script automatically:
+
+1. **Installs Required Software**:
+   - PostgreSQL 14 and PostgreSQL-contrib
+   - Node.js 18.x and npm
+   - Essential build tools and utilities
+   - Git, curl, wget
+   - UFW (Uncomplicated Firewall)
+   - Fail2ban for security
+
+2. **Configures PostgreSQL**:
+   - Creates database user 'classserver'
+   - Creates database 'classserver'
+   - Sets up proper permissions
+
+3. **Sets up Node.js Environment**:
+   - Installs global npm packages (pm2, sequelize-cli)
+   - Configures production environment
+
+4. **Configures Security**:
+   - Sets up UFW firewall with necessary ports
+   - Configures Fail2ban for protection against brute force attacks
+   - Opens required ports:
+     - 80 (HTTP)
+     - 443 (HTTPS)
+     - 3000 (Backend API)
+     - 5173 (Frontend Development)
+
+5. **Creates Project Structure**:
+   - Sets up project directory at `/opt/classserver`
+   - Creates necessary log directories
+   - Sets up proper permissions
+
+6. **Configures System Service**:
+   - Creates systemd service for automatic startup
+   - Enables service persistence across reboots
+
+7. **Sets up Environment**:
+   - Creates `.env` file with default configuration
+   - Sets up logging configuration
+
+### After Running the Script
+
+After the script completes, you'll need to:
+
+1. **Update Security Settings**:
+   ```bash
+   # Change the PostgreSQL password in .env file
+   nano /opt/classserver/.env
+   
+   # Update the database user password
+   sudo -u postgres psql
+   ALTER USER classserver WITH PASSWORD 'your_new_secure_password';
+   ```
+
+2. **Clone and Set Up the Project**:
+   ```bash
+   cd /opt/classserver
+   git clone https://github.com/yourusername/ClassServer.git .
+   npm install
+   npm run migrate --workspace=backend
+   ```
+
+3. **Start the Service**:
+   ```bash
+   sudo systemctl start classserver
+   sudo systemctl status classserver  # Verify it's running
+   ```
+
+### Default Configuration
+
+The script sets up the following default values:
+- Project Directory: `/opt/classserver`
+- Database Name: `classserver`
+- Database User: `classserver`
+- Backend Port: `3000`
+- Frontend Dev Port: `5173`
+- Log Directory: `/var/log/classserver`
+
+### Troubleshooting
+
+If you encounter issues:
+
+1. **Check the service status**:
+   ```bash
+   sudo systemctl status classserver
+   ```
+
+2. **View logs**:
+   ```bash
+   sudo journalctl -u classserver
+   tail -f /var/log/classserver/app.log
+   ```
+
+3. **Verify PostgreSQL**:
+   ```bash
+   sudo systemctl status postgresql
+   psql -U classserver -d classserver -h localhost
+   ```
+
 ## Project Setup
 
 1. **Clone and Configure**

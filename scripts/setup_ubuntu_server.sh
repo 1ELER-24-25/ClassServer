@@ -170,12 +170,28 @@ systemctl start classserver-backend
 print_message "Creating backup script..."
 cat > /opt/ClassServer/scripts/backup.sh << EOF
 #!/bin/bash
+
+# Exit on error
+set -e
+
+# Configuration
 BACKUP_DIR="/opt/ClassServer/backups"
 TIMESTAMP=\$(date +"%Y%m%d_%H%M%S")
-mkdir -p \$BACKUP_DIR
+DB_USER="classserver"
+DB_NAME="classserver"
 
-# Backup database
-pg_dump -U classserver classserver > \$BACKUP_DIR/db_\$TIMESTAMP.sql
+# Ensure backup directory exists and has correct permissions
+mkdir -p \$BACKUP_DIR
+chown www-data:www-data \$BACKUP_DIR
+chmod 750 \$BACKUP_DIR
+
+# Load database password from environment file
+source /opt/ClassServer/scripts/backup.env
+
+# Perform database backup
+export PGPASSWORD="\$DB_PASSWORD"
+pg_dump -U \$DB_USER \$DB_NAME > \$BACKUP_DIR/db_\$TIMESTAMP.sql
+unset PGPASSWORD
 
 # Backup uploads directory if exists
 if [ -d "/opt/ClassServer/backend/uploads" ]; then
@@ -184,12 +200,28 @@ fi
 
 # Keep only last 7 days of backups
 find \$BACKUP_DIR -type f -mtime +7 -delete
+
+# Set proper permissions for backup files
+chmod 640 \$BACKUP_DIR/db_\$TIMESTAMP.sql
+if [ -f \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz ]; then
+    chmod 640 \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz
+fi
 EOF
 
-chmod +x /opt/ClassServer/scripts/backup.sh
+# Create environment file for backup script
+print_message "Creating backup environment file..."
+cat > /opt/ClassServer/scripts/backup.env << EOF
+DB_PASSWORD="$DB_PASSWORD"
+EOF
 
-# Add backup cron job
-(crontab -l 2>/dev/null; echo "0 3 * * * /opt/ClassServer/scripts/backup.sh") | crontab -
+# Set proper permissions for scripts
+chmod 750 /opt/ClassServer/scripts/backup.sh
+chmod 640 /opt/ClassServer/scripts/backup.env
+chown -R www-data:www-data /opt/ClassServer/scripts
+
+# Add backup cron job for www-data user
+print_message "Setting up backup cron job..."
+(crontab -u www-data -l 2>/dev/null; echo "0 3 * * * /opt/ClassServer/scripts/backup.sh") | crontab -u www-data -
 
 print_message "Installation completed successfully!"
 print_message "Your server is now running at https://$DOMAIN_NAME"

@@ -1,27 +1,25 @@
 #!/bin/bash
 
-# Colors for output
+# Exit on any error
+set -e
+
+# Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Function to print status messages
-print_status() {
-    echo -e "${YELLOW}[*] $1${NC}"
+# Print colored message
+print_message() {
+    echo -e "${GREEN}[Setup] ${NC}$1"
 }
 
-print_success() {
-    echo -e "${GREEN}[+] $1${NC}"
+print_warning() {
+    echo -e "${YELLOW}[Warning] ${NC}$1"
 }
 
 print_error() {
-    echo -e "${RED}[-] $1${NC}"
-}
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
+    echo -e "${RED}[Error] ${NC}$1"
 }
 
 # Check if script is run as root
@@ -30,147 +28,172 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Update package list
-print_status "Updating package list..."
+# Get environment variables
+read -p "Enter PostgreSQL password for classserver user: " DB_PASSWORD
+read -p "Enter domain name (e.g., game.example.com): " DOMAIN_NAME
+read -p "Enter email for SSL certificate: " EMAIL
+
+# Update system
+print_message "Updating system packages..."
 apt-get update
+apt-get upgrade -y
 
-# Install essential tools
-print_status "Installing essential tools..."
+# Install required packages
+print_message "Installing required packages..."
 apt-get install -y \
-    curl \
-    wget \
-    git \
-    build-essential \
+    postgresql \
+    nginx \
+    certbot \
+    python3-certbot-nginx \
     python3-pip \
-    ufw \
-    fail2ban
+    python3-venv \
+    git \
+    nodejs \
+    npm \
+    ufw
 
-# Install and configure PostgreSQL
-print_status "Installing PostgreSQL..."
-if ! command_exists psql; then
-    apt-get install -y postgresql postgresql-contrib
-    systemctl enable postgresql
-    systemctl start postgresql
-    print_success "PostgreSQL installed and started"
+# Configure PostgreSQL
+print_message "Configuring PostgreSQL..."
+sudo -u postgres psql -c "CREATE USER classserver WITH PASSWORD '$DB_PASSWORD';"
+sudo -u postgres psql -c "CREATE DATABASE classserver WITH OWNER classserver;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classserver;"
 
-    # Create database and user
-    print_status "Setting up PostgreSQL user and database..."
-    sudo -u postgres psql -c "CREATE USER classserver WITH PASSWORD 'changeme' CREATEDB;"
-    sudo -u postgres psql -c "CREATE DATABASE classserver OWNER classserver;"
-    print_success "PostgreSQL user and database created"
-else
-    print_status "PostgreSQL is already installed"
-fi
+# Configure Nginx
+print_message "Configuring Nginx..."
+cat > /etc/nginx/sites-available/classserver << EOF
+server {
+    server_name $DOMAIN_NAME;
 
-# Install Node.js and npm
-print_status "Installing Node.js and npm..."
-if ! command_exists node; then
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-    apt-get install -y nodejs
-    print_success "Node.js installed: $(node --version)"
-    print_success "npm installed: $(npm --version)"
-else
-    print_status "Node.js is already installed: $(node --version)"
-fi
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
 
-# Install global npm packages
-print_status "Installing global npm packages..."
-npm install -g pm2 sequelize-cli
+    location /api {
+        proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/classserver /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
+
+# Configure SSL with Certbot
+print_message "Configuring SSL certificate..."
+certbot --nginx -d $DOMAIN_NAME --non-interactive --agree-tos -m $EMAIL --redirect
 
 # Configure firewall
-print_status "Configuring firewall..."
+print_message "Configuring firewall..."
+ufw allow 'Nginx Full'
 ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 3000/tcp  # Backend API
-ufw allow 5173/tcp  # Frontend development
 ufw --force enable
 
-# Install and configure Fail2ban
-print_status "Configuring Fail2ban..."
-cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-systemctl enable fail2ban
-systemctl start fail2ban
+# Clone repository
+print_message "Cloning repository..."
+cd /opt
+git clone https://github.com/yourusername/ClassServer.git
+cd ClassServer
 
-# Create project directory structure
-print_status "Creating project directory structure..."
-PROJECT_DIR="/opt/classserver"
-mkdir -p $PROJECT_DIR
-chown -R $SUDO_USER:$SUDO_USER $PROJECT_DIR
+# Setup Python backend
+print_message "Setting up Python backend..."
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-# Create systemd service for the backend
-print_status "Creating systemd service..."
-cat > /etc/systemd/system/classserver.service << EOL
+# Create backend service
+cat > /etc/systemd/system/classserver-backend.service << EOF
 [Unit]
 Description=ClassServer Backend
-After=network.target postgresql.service
+After=network.target
 
 [Service]
-Type=simple
-User=$SUDO_USER
-WorkingDirectory=$PROJECT_DIR/backend
-ExecStart=/usr/bin/npm start
-Restart=always
-Environment=NODE_ENV=production
-Environment=PORT=3000
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ClassServer/backend
+Environment="PATH=/opt/ClassServer/venv/bin"
+Environment="DATABASE_URL=postgresql://classserver:$DB_PASSWORD@localhost/classserver"
+ExecStart=/opt/ClassServer/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 
 [Install]
 WantedBy=multi-user.target
-EOL
+EOF
 
-# Reload systemd
+# Setup frontend
+print_message "Setting up frontend..."
+cd frontend
+npm install
+npm run build
+
+# Create frontend service
+cat > /etc/systemd/system/classserver-frontend.service << EOF
+[Unit]
+Description=ClassServer Frontend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ClassServer/frontend
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/npm start
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set proper permissions
+print_message "Setting permissions..."
+chown -R www-data:www-data /opt/ClassServer
+chmod -R 755 /opt/ClassServer
+
+# Start services
+print_message "Starting services..."
 systemctl daemon-reload
+systemctl enable classserver-backend
+systemctl enable classserver-frontend
+systemctl start classserver-backend
+systemctl start classserver-frontend
 
-# Setup environment variables
-print_status "Setting up environment variables..."
-cat > $PROJECT_DIR/.env << EOL
-# Server Configuration
-PORT=3000
-NODE_ENV=production
+# Create backup script
+print_message "Creating backup script..."
+cat > /opt/ClassServer/scripts/backup.sh << EOF
+#!/bin/bash
+BACKUP_DIR="/opt/ClassServer/backups"
+TIMESTAMP=\$(date +"%Y%m%d_%H%M%S")
+mkdir -p \$BACKUP_DIR
 
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=classserver
-DB_USER=classserver
-DB_PASSWORD=changeme
+# Backup database
+pg_dump -U classserver classserver > \$BACKUP_DIR/db_\$TIMESTAMP.sql
 
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=60000
-RATE_LIMIT_MAX_REQUESTS=100
+# Backup uploads directory if exists
+if [ -d "/opt/ClassServer/backend/uploads" ]; then
+    tar -czf \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz /opt/ClassServer/backend/uploads
+fi
 
-# Game Configuration
-MAX_USERS=100
-MAX_CONCURRENT_GAMES=10
-MAX_API_RESPONSE_TIME_MS=500
+# Keep only last 7 days of backups
+find \$BACKUP_DIR -type f -mtime +7 -delete
+EOF
 
-# Logging
-LOG_LEVEL=info
-LOG_FILE_PATH=/var/log/classserver/app.log
-EOL
+chmod +x /opt/ClassServer/scripts/backup.sh
 
-# Create log directory
-mkdir -p /var/log/classserver
-chown -R $SUDO_USER:$SUDO_USER /var/log/classserver
+# Add backup cron job
+(crontab -l 2>/dev/null; echo "0 3 * * * /opt/ClassServer/scripts/backup.sh") | crontab -
 
-# Final setup steps
-print_status "Performing final setup steps..."
-systemctl enable classserver
-
-# Print setup summary
-print_success "Installation completed!"
-echo -e "\nSetup Summary:"
-echo "---------------"
-echo "PostgreSQL Database: classserver"
-echo "PostgreSQL User: classserver"
-echo "Project Directory: $PROJECT_DIR"
-echo "Backend Port: 3000"
-echo "Frontend Development Port: 5173"
-echo "Log Directory: /var/log/classserver"
-echo -e "\nNext steps:"
-echo "1. Update database password in .env file"
-echo "2. Clone your project repository to $PROJECT_DIR"
-echo "3. Run 'npm install' in both frontend and backend directories"
-echo "4. Run database migrations: 'npm run migrate'"
-echo "5. Start the service: 'systemctl start classserver'"
-echo -e "\nNote: Remember to secure your server and change default passwords!" 
+print_message "Installation completed successfully!"
+print_message "Your server is now running at https://$DOMAIN_NAME"
+print_message "Please make sure to:"
+print_message "1. Update the database connection string in the backend configuration"
+print_message "2. Configure your domain's DNS settings to point to this server"
+print_message "3. Test the SSL certificate renewal with: certbot renew --dry-run"
+print_warning "Keep your database password safe: $DB_PASSWORD" 

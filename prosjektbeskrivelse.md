@@ -60,6 +60,13 @@ Dette er et system for å registrere og administrere bordspill-konkurranser via 
    - Elo-rating per spill per bruker
    - Startrating: 1200
    - Oppdateres automatisk
+   - Felter:
+     - `user_id`: Kobling til users-tabellen
+     - `game_id`: Kobling til games-tabellen
+     - `elo`: Nåværende rating (INTEGER)
+     - `created_at`: Tidspunkt for første kamp
+     - `updated_at`: Sist oppdatert
+   - Primærnøkkel: Kombinasjon av (user_id, game_id)
 
 ## 4. API
 

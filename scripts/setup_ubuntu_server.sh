@@ -54,7 +54,10 @@ apt-get install -y \
 
 # Configure PostgreSQL
 print_message "Configuring PostgreSQL..."
-sudo -u postgres psql -c "CREATE USER classserver WITH PASSWORD '$DB_PASSWORD';"
+sudo -u postgres psql -c "DO \$do\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'classserver') THEN CREATE USER classserver WITH PASSWORD '$DB_PASSWORD'; END IF; END \$do\$;" || {
+    print_error "Failed to create PostgreSQL user"
+    exit 1
+}
 sudo -u postgres psql -c "CREATE DATABASE classserver WITH OWNER classserver;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classserver;"
 
@@ -64,15 +67,14 @@ cat > /etc/nginx/sites-available/classserver << EOF
 server {
     server_name $DOMAIN_NAME;
 
+    # Serve static frontend files
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
+        root /opt/ClassServer/frontend/dist;  # Vite builds to 'dist' by default
+        try_files \$uri \$uri/ /index.html;
+        add_header Cache-Control "public, max-age=3600";
     }
 
+    # Backend API proxy
     location /api {
         proxy_pass http://localhost:8000;
         proxy_http_version 1.1;
@@ -101,15 +103,27 @@ ufw --force enable
 
 # Clone repository
 print_message "Cloning repository..."
+read -p "Enter GitHub repository URL (e.g., https://github.com/1ELER-24-25/ClassServer.git): " REPO_URL
 cd /opt
-git clone https://github.com/yourusername/ClassServer.git
+git clone "$REPO_URL" ClassServer || {
+    print_error "Failed to clone repository"
+    exit 1
+}
 cd ClassServer
 
 # Setup Python backend
 print_message "Setting up Python backend..."
+if [ ! -f requirements.txt ]; then
+    print_error "requirements.txt not found in /opt/ClassServer"
+    exit 1
+fi
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt || {
+    print_error "Failed to install Python dependencies"
+    exit 1
+}
+deactivate
 
 # Create backend service
 cat > /etc/systemd/system/classserver-backend.service << EOF
@@ -132,38 +146,25 @@ EOF
 # Setup frontend
 print_message "Setting up frontend..."
 cd frontend
-npm install
-npm run build
-
-# Create frontend service
-cat > /etc/systemd/system/classserver-frontend.service << EOF
-[Unit]
-Description=ClassServer Frontend
-After=network.target
-
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/opt/ClassServer/frontend
-Environment="NODE_ENV=production"
-ExecStart=/usr/bin/npm start
-
-[Install]
-WantedBy=multi-user.target
-EOF
+npm install || {
+    print_error "Failed to install frontend dependencies"
+    exit 1
+}
+npm run build || {
+    print_error "Failed to build frontend"
+    exit 1
+}
 
 # Set proper permissions
 print_message "Setting permissions..."
 chown -R www-data:www-data /opt/ClassServer
 chmod -R 755 /opt/ClassServer
 
-# Start services
-print_message "Starting services..."
+# Start backend service
+print_message "Starting backend service..."
 systemctl daemon-reload
 systemctl enable classserver-backend
-systemctl enable classserver-frontend
 systemctl start classserver-backend
-systemctl start classserver-frontend
 
 # Create backup script
 print_message "Creating backup script..."

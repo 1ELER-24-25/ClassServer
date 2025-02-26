@@ -15,21 +15,14 @@ A modern game tracking system for competitive table games with real-time scoring
 ## 🛠️ Tech Stack
 
 - **Backend:** Node.js + Express
-- **Frontend:** React
-- **Database:** PostgreSQL
-- **ORM:** Sequelize
+- **Frontend:** React + Tailwind CSS
+- **Database:** PostgreSQL + Sequelize ORM
 - **Hardware:** ESP32 Controllers
 - **Server:** Ubuntu 22.04 LTS
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- Node.js (LTS version)
-- PostgreSQL
-- ESP32 Development Board (for game controllers)
-
-### Installation
+### Quick Start
 
 1. Clone the repository
 ```bash
@@ -37,21 +30,22 @@ git clone https://github.com/yourusername/ClassServer.git
 cd ClassServer
 ```
 
-2. Install dependencies
+2. Install dependencies and set up the project
 ```bash
 npm install
-```
-
-3. Configure environment variables
-```bash
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-4. Start the server
+3. Start development servers
 ```bash
 npm run start
 ```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+
+For detailed installation instructions, including prerequisites, database setup, and hardware configuration, please see our [Installation Guide](INSTALLATION.md).
 
 ## 📐 System Architecture
 
@@ -71,7 +65,7 @@ npm run start
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License
 
 ## 🤝 Contributing
 

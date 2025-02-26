@@ -28,48 +28,126 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Get environment variables
-read -p "Enter PostgreSQL password for classserver user: " DB_PASSWORD
-read -p "Enter domain name (e.g., game.example.com): " DOMAIN_NAME
-read -p "Enter email for SSL certificate: " EMAIL
+# Function to validate IP address
+validate_ip() {
+    if echo "$1" | grep -qP '^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+        local IFS='.'
+        local -a ip=($1)
+        [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+        return $?
+    fi
+    return 1
+}
+
+# Function to validate domain name format (relaxed for local use)
+validate_domain() {
+    if ! echo "$1" | grep -qP '^[a-zA-Z0-9.-]+\.[a-zA-Z0-9-]{2,}$|^[a-zA-Z0-9-]+$'; then
+        return 1
+    fi
+    return 0
+}
+
+# Get and validate environment variables
+while true; do
+    read -s -p "Enter PostgreSQL password for classserver user: " DB_PASSWORD
+    echo
+    if [ ${#DB_PASSWORD} -lt 8 ]; then
+        print_error "Password must be at least 8 characters long"
+        continue
+    fi
+    break
+done
+
+while true; do
+    read -p "Enter server address (IP or local domain, e.g., 192.168.1.100 or local.classserver): " SERVER_ADDRESS
+    if ! validate_ip "$SERVER_ADDRESS" && ! validate_domain "$SERVER_ADDRESS"; then
+        print_error "Invalid address format. Use an IP (e.g., 192.168.1.100) or local domain (e.g., local.classserver)"
+        continue
+    fi
+    break
+done
+
+while true; do
+    read -p "Enter GitHub repository URL (e.g., https://github.com/1ELER-24-25/ClassServer.git): " REPO_URL
+    if ! echo "$REPO_URL" | grep -qP '^https://github\.com/[^/]+/[^/]+(\.git)?$'; then
+        print_error "Invalid GitHub repository URL format"
+        continue
+    fi
+    break
+done
+
+# Create a backup of existing configuration if any
+if [ -d "/opt/ClassServer" ]; then
+    BACKUP_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+    print_warning "Existing ClassServer installation found. Creating backup..."
+    tar -czf "/opt/classserver_backup_${BACKUP_TIMESTAMP}.tar.gz" /opt/ClassServer
+fi
 
 # Update system
 print_message "Updating system packages..."
-apt-get update
-apt-get upgrade -y
+apt-get update || {
+    print_error "Failed to update package list"
+    exit 1
+}
+apt-get upgrade -y || {
+    print_error "Failed to upgrade packages"
+    exit 1
+}
 
-# Install required packages
+# Install required packages (without SSL-related packages)
 print_message "Installing required packages..."
 apt-get install -y \
     postgresql \
     nginx \
-    certbot \
-    python3-certbot-nginx \
     python3-pip \
     python3-venv \
     git \
     nodejs \
     npm \
-    ufw
+    ufw || {
+    print_error "Failed to install required packages"
+    exit 1
+}
 
-# Configure PostgreSQL
+# Start and enable PostgreSQL
+print_message "Starting PostgreSQL server..."
+systemctl start postgresql || {
+    print_error "Failed to start PostgreSQL server"
+    exit 1
+}
+systemctl enable postgresql || {
+    print_error "Failed to enable PostgreSQL server"
+    exit 1
+}
+
+# Configure PostgreSQL with error handling
 print_message "Configuring PostgreSQL..."
 sudo -u postgres psql -c "DO \$do\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'classserver') THEN CREATE USER classserver WITH PASSWORD '$DB_PASSWORD'; END IF; END \$do\$;" || {
     print_error "Failed to create PostgreSQL user"
     exit 1
 }
-sudo -u postgres psql -c "CREATE DATABASE classserver WITH OWNER classserver;"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classserver;"
+sudo -u postgres psql -c "CREATE DATABASE classserver WITH OWNER classserver;" 2>/dev/null || true
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classserver;" || {
+    print_error "Failed to grant privileges to PostgreSQL user"
+    exit 1
+}
 
-# Configure Nginx
+# Configure Nginx for HTTP only
 print_message "Configuring Nginx..."
 cat > /etc/nginx/sites-available/classserver << EOF
 server {
-    server_name $DOMAIN_NAME;
+    listen 80;
+    server_name $SERVER_ADDRESS;
+
+    # Security headers (even for HTTP)
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+    add_header Referrer-Policy "strict-origin-when-cross-origin";
 
     # Serve static frontend files
     location / {
-        root /opt/ClassServer/frontend/dist;  # Vite builds to 'dist' by default
+        root /opt/ClassServer/frontend/dist;
         try_files \$uri \$uri/ /index.html;
         add_header Cache-Control "public, max-age=3600";
     }
@@ -81,55 +159,131 @@ server {
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        
+        # Rate limiting
+        limit_req zone=api burst=10 nodelay;
+        limit_req_status 429;
     }
+
+    # Rate limiting zone
+    limit_req_zone \$binary_remote_addr zone=api:10m rate=5r/s;
 }
 EOF
 
+# Create Nginx security configuration
+cat > /etc/nginx/conf.d/security.conf << EOF
+# Security settings
+server_tokens off;
+client_max_body_size 10M;
+client_body_timeout 12;
+client_header_timeout 12;
+keepalive_timeout 15;
+send_timeout 10;
+EOF
+
+# Configure Nginx
 ln -sf /etc/nginx/sites-available/classserver /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-nginx -t
-systemctl restart nginx
 
-# Configure SSL with Certbot
-print_message "Configuring SSL certificate..."
-certbot --nginx -d $DOMAIN_NAME --non-interactive --agree-tos -m $EMAIL --redirect
-
-# Configure firewall
-print_message "Configuring firewall..."
-ufw allow 'Nginx Full'
-ufw allow OpenSSH
-ufw --force enable
-
-# Clone repository
-print_message "Cloning repository..."
-read -p "Enter GitHub repository URL (e.g., https://github.com/1ELER-24-25/ClassServer.git): " REPO_URL
-cd /opt
-git clone "$REPO_URL" ClassServer || {
-    print_error "Failed to clone repository"
-    exit 1
-}
-cd ClassServer
-
-# Setup Python backend
-print_message "Setting up Python backend..."
-if [ ! -f requirements.txt ]; then
-    print_error "requirements.txt not found in /opt/ClassServer"
+# Test Nginx configuration
+if ! nginx -t; then
+    print_error "Nginx configuration test failed"
     exit 1
 fi
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt || {
-    print_error "Failed to install Python dependencies"
+
+# Restart Nginx
+systemctl restart nginx || {
+    print_error "Failed to restart Nginx"
     exit 1
 }
+
+# Configure firewall for HTTP only
+print_message "Configuring firewall..."
+ufw status verbose | grep -q "Status: active" && {
+    print_warning "Firewall is already active. Adding rules..."
+} || {
+    print_message "Enabling firewall..."
+    ufw --force enable
+}
+
+ufw allow 80/tcp || {
+    print_error "Failed to add HTTP firewall rule"
+    exit 1
+}
+ufw allow OpenSSH || {
+    print_error "Failed to add SSH firewall rule"
+    exit 1
+}
+
+# Clone repository with proper error handling
+print_message "Cloning repository..."
+cd /opt || {
+    print_error "Failed to change to /opt directory"
+    exit 1
+}
+
+if [ -d "ClassServer" ]; then
+    print_warning "ClassServer directory already exists. Using backup created earlier..."
+    rm -rf ClassServer
+fi
+
+git clone "$REPO_URL" ClassServer || {
+    print_error "Failed to clone repository from $REPO_URL"
+    print_warning "Please check if the repository URL is correct and accessible"
+    exit 1
+}
+
+cd ClassServer || {
+    print_error "Failed to change to ClassServer directory"
+    exit 1
+}
+
+# Setup Python backend with enhanced error handling
+print_message "Setting up Python backend..."
+if [ ! -f "requirements.txt" ]; then
+    print_error "requirements.txt not found in /opt/ClassServer"
+    print_warning "Please ensure the repository contains a requirements.txt file"
+    exit 1
+fi
+
+# Create and activate virtual environment with error handling
+print_message "Creating Python virtual environment..."
+if ! python3 -m venv venv; then
+    print_error "Failed to create Python virtual environment"
+    exit 1
+fi
+
+source venv/bin/activate || {
+    print_error "Failed to activate Python virtual environment"
+    exit 1
+}
+
+# Upgrade pip and install dependencies
+print_message "Upgrading pip and installing dependencies..."
+python -m pip install --upgrade pip || {
+    print_error "Failed to upgrade pip"
+    exit 1
+}
+
+pip install -r requirements.txt || {
+    print_error "Failed to install Python dependencies"
+    print_warning "Check requirements.txt for any invalid packages"
+    exit 1
+}
+
 deactivate
 
-# Create backend service
+# Create backend service with enhanced security
+print_message "Creating backend service..."
 cat > /etc/systemd/system/classserver-backend.service << EOF
 [Unit]
 Description=ClassServer Backend
-After=network.target
+After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
 User=www-data
@@ -138,37 +292,90 @@ WorkingDirectory=/opt/ClassServer/backend
 Environment="PATH=/opt/ClassServer/venv/bin"
 Environment="DATABASE_URL=postgresql://classserver:$DB_PASSWORD@localhost/classserver"
 ExecStart=/opt/ClassServer/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Setup frontend
+# Setup frontend with improved error handling
 print_message "Setting up frontend..."
-cd frontend
-npm install || {
-    print_error "Failed to install frontend dependencies"
+cd frontend || {
+    print_error "Failed to change to frontend directory"
     exit 1
 }
-npm run build || {
+
+# Check for package.json
+if [ ! -f "package.json" ]; then
+    print_error "package.json not found in frontend directory"
+    exit 1
+fi
+
+# Install dependencies with proper error handling
+print_message "Installing frontend dependencies..."
+if ! npm ci; then
+    print_warning "npm ci failed, falling back to npm install..."
+    if ! npm install; then
+        print_error "Failed to install frontend dependencies"
+        exit 1
+    fi
+fi
+
+# Build frontend with production optimization
+print_message "Building frontend..."
+if ! npm run build; then
     print_error "Failed to build frontend"
+    print_warning "Check the build logs for errors"
+    exit 1
+fi
+
+# Set proper permissions with security in mind
+print_message "Setting permissions..."
+find /opt/ClassServer -type f -exec chmod 644 {} \;
+find /opt/ClassServer -type d -exec chmod 755 {} \;
+chmod 750 /opt/ClassServer/venv
+chmod 750 /opt/ClassServer/backend
+chmod 750 /opt/ClassServer/scripts
+chown -R www-data:www-data /opt/ClassServer || {
+    print_error "Failed to set proper permissions"
     exit 1
 }
 
-# Set proper permissions
-print_message "Setting permissions..."
-chown -R www-data:www-data /opt/ClassServer
-chmod -R 755 /opt/ClassServer
-
-# Start backend service
+# Start and enable backend service with proper checks
 print_message "Starting backend service..."
-systemctl daemon-reload
-systemctl enable classserver-backend
-systemctl start classserver-backend
+systemctl daemon-reload || {
+    print_error "Failed to reload systemd configuration"
+    exit 1
+}
 
-# Create backup script
+systemctl enable classserver-backend || {
+    print_error "Failed to enable backend service"
+    exit 1
+}
+
+systemctl start classserver-backend || {
+    print_error "Failed to start backend service"
+    exit 1
+}
+
+# Create backup script with improved error handling and logging
 print_message "Creating backup script..."
-cat > /opt/ClassServer/scripts/backup.sh << EOF
+cat > /opt/ClassServer/scripts/backup.sh << 'EOF'
 #!/bin/bash
 
 # Exit on error
@@ -176,36 +383,56 @@ set -e
 
 # Configuration
 BACKUP_DIR="/opt/ClassServer/backups"
-TIMESTAMP=\$(date +"%Y%m%d_%H%M%S")
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 DB_USER="classserver"
 DB_NAME="classserver"
+LOG_FILE="/var/log/classserver-backup.log"
+
+# Logging function
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+# Error handling function
+handle_error() {
+    local error_message="$1"
+    log_message "ERROR: $error_message"
+    echo "Backup failed: $error_message" >&2
+    exit 1
+}
 
 # Ensure backup directory exists and has correct permissions
-mkdir -p \$BACKUP_DIR
-chown www-data:www-data \$BACKUP_DIR
-chmod 750 \$BACKUP_DIR
+mkdir -p "$BACKUP_DIR"/{daily,weekly,monthly} || handle_error "Failed to create backup directories"
+chown www-data:www-data "$BACKUP_DIR" -R || handle_error "Failed to set backup directory permissions"
+chmod 750 "$BACKUP_DIR" -R || handle_error "Failed to set backup directory permissions"
 
 # Load database password from environment file
+if [ ! -f "/opt/ClassServer/scripts/backup.env" ]; then
+    handle_error "Backup environment file not found"
+fi
 source /opt/ClassServer/scripts/backup.env
 
 # Perform database backup
-export PGPASSWORD="\$DB_PASSWORD"
-pg_dump -U \$DB_USER \$DB_NAME > \$BACKUP_DIR/db_\$TIMESTAMP.sql
+log_message "Starting database backup"
+export PGPASSWORD="$DB_PASSWORD"
+pg_dump -U "$DB_USER" "$DB_NAME" > "$BACKUP_DIR/daily/db_$TIMESTAMP.sql" || handle_error "Database backup failed"
 unset PGPASSWORD
 
 # Backup uploads directory if exists
 if [ -d "/opt/ClassServer/backend/uploads" ]; then
-    tar -czf \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz /opt/ClassServer/backend/uploads
+    log_message "Backing up uploads directory"
+    tar -czf "$BACKUP_DIR/daily/uploads_$TIMESTAMP.tar.gz" /opt/ClassServer/backend/uploads || handle_error "Uploads backup failed"
 fi
 
-# Keep only last 7 days of backups
-find \$BACKUP_DIR -type f -mtime +7 -delete
+# Rotate backups
+find "$BACKUP_DIR/daily" -type f -mtime +7 -delete
+find "$BACKUP_DIR/weekly" -type f -mtime +30 -delete
+find "$BACKUP_DIR/monthly" -type f -mtime +365 -delete
 
 # Set proper permissions for backup files
-chmod 640 \$BACKUP_DIR/db_\$TIMESTAMP.sql
-if [ -f \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz ]; then
-    chmod 640 \$BACKUP_DIR/uploads_\$TIMESTAMP.tar.gz
-fi
+chmod 640 "$BACKUP_DIR"/*/*.sql "$BACKUP_DIR"/*/*.tar.gz 2>/dev/null || true
+
+log_message "Backup completed successfully"
 EOF
 
 # Create environment file for backup script
@@ -214,19 +441,40 @@ cat > /opt/ClassServer/scripts/backup.env << EOF
 DB_PASSWORD="$DB_PASSWORD"
 EOF
 
-# Set proper permissions for scripts
+# Set proper permissions for scripts and environment file
 chmod 750 /opt/ClassServer/scripts/backup.sh
 chmod 640 /opt/ClassServer/scripts/backup.env
 chown -R www-data:www-data /opt/ClassServer/scripts
+touch /var/log/classserver-backup.log
+chown www-data:www-data /var/log/classserver-backup.log
+chmod 640 /var/log/classserver-backup.log
 
-# Add backup cron job for www-data user
+# Add backup cron job for www-data user with error handling
 print_message "Setting up backup cron job..."
-(crontab -u www-data -l 2>/dev/null; echo "0 3 * * * /opt/ClassServer/scripts/backup.sh") | crontab -u www-data -
+(crontab -u www-data -l 2>/dev/null; echo "0 3 * * * /opt/ClassServer/scripts/backup.sh >> /var/log/classserver-backup.log 2>&1") | crontab -u www-data - || {
+    print_error "Failed to set up backup cron job"
+    exit 1
+}
+
+# Create log rotation configuration
+cat > /etc/logrotate.d/classserver << EOF
+/var/log/classserver-backup.log {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 www-data www-data
+}
+EOF
 
 print_message "Installation completed successfully!"
-print_message "Your server is now running at https://$DOMAIN_NAME"
-print_message "Please make sure to:"
-print_message "1. Update the database connection string in the backend configuration"
-print_message "2. Configure your domain's DNS settings to point to this server"
-print_message "3. Test the SSL certificate renewal with: certbot renew --dry-run"
+print_message "Your server is now running at http://$SERVER_ADDRESS"
+print_message "Important next steps:"
+print_message "1. If using a local domain name, add this line to your /etc/hosts file:"
+print_message "   $(hostname -I | awk '{print $1}') $SERVER_ADDRESS"
+print_message "2. Verify the backend service: systemctl status classserver-backend"
+print_message "3. Check the backup system: /opt/ClassServer/scripts/backup.sh"
+print_message "4. Monitor logs: tail -f /var/log/classserver-backup.log"
 print_warning "Keep your database password safe: $DB_PASSWORD" 

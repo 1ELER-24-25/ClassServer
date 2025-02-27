@@ -177,4 +177,8 @@ systemctl start classserver-backend || {
     exit 1
 }
 
+# Setup AdminJS admin panel
+print_message "Setting up AdminJS admin panel..."
+"$SCRIPT_DIR/setup_admin.sh"
+
 print_message "Backend setup completed successfully!" 

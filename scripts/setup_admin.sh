@@ -16,6 +16,62 @@ cd /opt/ClassServer/backend
 print_message "Installing AdminJS and required packages..."
 npm install --save adminjs @adminjs/express @adminjs/sequelize express-formidable express-session
 
+# Update package.json to support ES Modules
+print_message "Updating package.json to support ES Modules..."
+if [ -f "package.json" ]; then
+    # Backup the original file
+    cp package.json package.json.bak
+    
+    # Update package.json to include type: module
+    jq '. + {"type": "module"}' package.json > package.json.tmp && mv package.json.tmp package.json
+    print_message "package.json updated to support ES Modules"
+else
+    print_warning "package.json not found. Creating a new one..."
+    cat > package.json << 'EOF'
+{
+  "name": "@classserver/backend",
+  "version": "1.0.0",
+  "description": "Backend server for ClassServer",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon src/index.js",
+    "build": "babel src -d dist",
+    "test": "jest",
+    "lint": "eslint src/",
+    "migrate": "sequelize-cli db:migrate",
+    "seed": "sequelize-cli db:seed:all"
+  },
+  "dependencies": {
+    "adminjs": "^7.8.15",
+    "@adminjs/express": "^6.1.1",
+    "@adminjs/sequelize": "^4.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-formidable": "^1.2.0",
+    "express-session": "^1.18.1",
+    "express-validator": "^7.0.1",
+    "morgan": "^1.10.0",
+    "pg": "^8.13.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.5",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.23.9",
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.3",
+    "sequelize-cli": "^6.6.2",
+    "supertest": "^6.3.4"
+  }
+}
+EOF
+fi
+
 # Create directories for components
 print_message "Creating component directories..."
 mkdir -p components
@@ -24,15 +80,15 @@ mkdir -p src
 # Create src/index.js file first
 print_message "Creating src/index.js file..."
 cat > src/index.js << 'EOF'
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
-const { sequelize } = require("./models");
-const { router: adminRouter } = require("../adminSetup");
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import { sequelize } from './models/index.js';
+import { router as adminRouter } from '../adminSetup.js';
 
 // Import routes
-const authRoutes = require("../routes/auth");
-const gamesRoutes = require("../routes/games");
+import authRoutes from '../routes/auth.js';
+import gamesRoutes from '../routes/games.js';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -40,26 +96,26 @@ const PORT = process.env.PORT || 8000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(morgan("dev"));
+app.use(morgan('dev'));
 
 // Mount the admin panel
-app.use("/admin", adminRouter);
+app.use('/admin', adminRouter);
 
 // Routes
-app.use("/auth", authRoutes);
-app.use("/games", gamesRoutes);
+app.use('/auth', authRoutes);
+app.use('/games', gamesRoutes);
 
 // Root route
-app.get("/", (req, res) => {
+app.get('/', (req, res) => {
   res.json({ 
-    message: "Welcome to ClassServer API",
-    adminPanel: `${req.protocol}://${req.get("host")}/admin`
+    message: 'Welcome to ClassServer API',
+    adminPanel: `${req.protocol}://${req.get('host')}/admin`
   });
 });
 
 // Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "healthy" });
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
 });
 
 // Start server
@@ -67,7 +123,7 @@ async function startServer() {
   try {
     // Test database connection
     await sequelize.authenticate();
-    console.log("Database connection established successfully");
+    console.log('Database connection established successfully');
     
     // Start server
     app.listen(PORT, () => {
@@ -75,21 +131,136 @@ async function startServer() {
       console.log(`Admin panel available at: http://localhost:${PORT}/admin`);
     });
   } catch (error) {
-    console.error("Unable to connect to the database:", error);
+    console.error('Unable to connect to the database:', error);
   }
 }
 
 startServer();
 EOF
 
+# Update model files to use ES Modules
+print_message "Updating model files to use ES Modules..."
+if [ -d "src/models" ]; then
+    # Update index.js
+    if [ -f "src/models/index.js" ]; then
+        print_message "Updating src/models/index.js..."
+        cp src/models/index.js src/models/index.js.bak
+        
+        # Convert to ES Modules
+        cat > src/models/index.js << 'EOF'
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import Sequelize from 'sequelize';
+import process from 'process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const basename = path.basename(__filename);
+const env = process.env.NODE_ENV || 'development';
+const config = {
+  username: process.env.DB_USER || 'classserver',
+  password: process.env.DB_PASSWORD || 'classserver',
+  database: process.env.DB_NAME || 'classserver',
+  host: process.env.DB_HOST || 'localhost',
+  dialect: 'postgres'
+};
+const db = {};
+
+let sequelize;
+if (config.use_env_variable) {
+  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+} else {
+  sequelize = new Sequelize(config.database, config.username, config.password, config);
+}
+
+// Import all model files
+const modelFiles = fs.readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&
+      file !== basename &&
+      file.slice(-3) === '.js' &&
+      file.indexOf('.test.js') === -1
+    );
+  });
+
+// Dynamic imports for all models
+const importModels = async () => {
+  for (const file of modelFiles) {
+    const modulePath = `file://${path.join(__dirname, file)}`;
+    const model = await import(modulePath);
+    db[model.default.name] = model.default;
+  }
+};
+
+// Initialize models
+const initializeModels = async () => {
+  await importModels();
+  
+  Object.keys(db).forEach(modelName => {
+    if (db[modelName].associate) {
+      db[modelName].associate(db);
+    }
+  });
+};
+
+// Call initialize (this is async but we'll handle it in the application)
+initializeModels();
+
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+export default db;
+export { sequelize, Sequelize };
+EOF
+        print_message "src/models/index.js updated to use ES Modules"
+    else
+        print_warning "src/models/index.js not found. Skipping update."
+    fi
+    
+    # Update other model files
+    for model_file in src/models/*.js; do
+        if [ "$model_file" != "src/models/index.js" ] && [ -f "$model_file" ]; then
+            print_message "Updating $model_file..."
+            cp "$model_file" "${model_file}.bak"
+            
+            # Convert to ES Modules (simplified approach)
+            sed -i 's/const { Model } = require/import { Model } from/g' "$model_file"
+            sed -i 's/module.exports = /export default /g' "$model_file"
+        fi
+    done
+else
+    print_warning "src/models directory not found. Skipping model updates."
+fi
+
+# Update route files to use ES Modules
+print_message "Updating route files to use ES Modules..."
+if [ -d "routes" ]; then
+    for route_file in routes/*.js; do
+        if [ -f "$route_file" ]; then
+            print_message "Updating $route_file..."
+            cp "$route_file" "${route_file}.bak"
+            
+            # Convert to ES Modules (simplified approach)
+            sed -i 's/const express = require/import express from/g' "$route_file"
+            sed -i 's/const router = express.Router()/const router = express.Router()/g' "$route_file"
+            sed -i 's/const { [^}]* } = require/import { Model } from/g' "$route_file"
+            sed -i 's/module.exports = router/export default router/g' "$route_file"
+        fi
+    done
+else
+    print_warning "routes directory not found. Skipping route updates."
+fi
+
 # Create AdminJS setup file
 print_message "Creating AdminJS configuration..."
 cat > adminSetup.js << 'EOF'
-const AdminJS = require('adminjs');
-const AdminJSExpress = require('@adminjs/express');
-const AdminJSSequelize = require('@adminjs/sequelize');
-const session = require('express-session');
-const { sequelize, User, Game, Match, UserElo } = require('./src/models');
+import AdminJS from 'adminjs';
+import AdminJSExpress from '@adminjs/express';
+import AdminJSSequelize from '@adminjs/sequelize';
+import session from 'express-session';
+import { sequelize, User, Game, Match, UserElo } from './src/models/index.js';
 
 // Register Sequelize adapter
 AdminJS.registerAdapter(AdminJSSequelize);
@@ -184,7 +355,7 @@ const router = AdminJSExpress.buildAuthenticatedRouter(
   }
 );
 
-module.exports = { adminJs, router };
+export { adminJs, router };
 EOF
 
 # Create dashboard component
@@ -237,15 +408,15 @@ if [ -f "main.js" ]; then
     
     # Create a new main.js with AdminJS integration
     cat > main.js << 'EOF'
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const { sequelize } = require('./src/models');
-const { router: adminRouter } = require('./adminSetup');
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import { sequelize } from './src/models/index.js';
+import { router as adminRouter } from './adminSetup.js';
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const gamesRoutes = require('./routes/games');
+import authRoutes from './routes/auth.js';
+import gamesRoutes from './routes/games.js';
 
 const app = express();
 const PORT = process.env.PORT || 8000;

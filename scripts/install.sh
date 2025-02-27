@@ -310,17 +310,37 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
-# Clean install dependencies
-print_message "Installing frontend dependencies..."
-rm -rf node_modules package-lock.json
-npm install || {
-    print_error "Failed to install frontend dependencies"
-    exit 1
-}
-
 # Create necessary directories
 print_message "Creating frontend directory structure..."
 mkdir -p src/{components,hooks,pages,lib,types,components/layouts,components/auth,pages/auth,pages/admin}
+
+# Create useAuth hook
+print_message "Creating auth hook..."
+cat > src/hooks/useAuth.ts << EOF
+import { create } from 'zustand';
+
+interface User {
+  id: number;
+  email: string;
+  isAdmin: boolean;
+}
+
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  login: (user: User) => void;
+  logout: () => void;
+}
+
+export const useAuth = create<AuthState>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  login: (user) => set({ user, isAuthenticated: true, isAdmin: user.isAdmin }),
+  logout: () => set({ user: null, isAuthenticated: false, isAdmin: false }),
+}));
+EOF
 
 # Create minimal component files
 print_message "Creating minimal component files..."
@@ -381,6 +401,17 @@ export default ${page};
 EOF
 done
 
+# Create auth pages
+cat > src/pages/auth/Register.tsx << EOF
+import React from 'react';
+
+const Register: React.FC = () => {
+  return <div>Register Page</div>;
+};
+
+export default Register;
+EOF
+
 # Create admin pages
 for page in Backup Games; do
   cat > src/pages/admin/${page}.tsx << EOF
@@ -393,6 +424,93 @@ const Admin${page}: React.FC = () => {
 export default Admin${page};
 EOF
 done
+
+# Update App.tsx
+print_message "Updating App.tsx..."
+cat > src/App.tsx << EOF
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import AuthLayout from '@components/layouts/AuthLayout';
+import Register from '@pages/auth/Register';
+import Dashboard from '@pages/Dashboard';
+import Profile from '@pages/Profile';
+import MatchHistory from '@pages/MatchHistory';
+import AdminBackup from '@pages/admin/Backup';
+import AdminGames from '@pages/admin/Games';
+import NotFound from '@pages/NotFound';
+import ProtectedRoute from '@components/auth/ProtectedRoute';
+import AdminRoute from '@components/auth/AdminRoute';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AuthLayout />}>
+          <Route path="/register" element={<Register />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/matches" element={<MatchHistory />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/backup" element={<AdminBackup />} />
+              <Route path="/admin/games" element={<AdminGames />} />
+            </Route>
+          </Route>
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+EOF
+
+# Update package.json dependencies
+print_message "Updating package.json..."
+cat > package.json << EOF
+{
+  "name": "@classserver/frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.1",
+    "zustand": "^4.5.1",
+    "@heroicons/react": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.4"
+  }
+}
+EOF
+
+# Clean install dependencies
+print_message "Installing frontend dependencies..."
+rm -rf node_modules package-lock.json
+npm install || {
+    print_error "Failed to install frontend dependencies"
+    exit 1
+}
 
 # Build frontend with production optimization
 print_message "Building frontend..."

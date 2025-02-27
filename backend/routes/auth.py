@@ -6,8 +6,12 @@ from ..models import User
 from ..schemas import UserResponse, RFIDAuthResponse
 from ..utils.name_generator import generate_username, generate_temp_password
 from ..utils.auth import get_password_hash, create_access_token
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 @router.post("/rfid/auth", response_model=RFIDAuthResponse)
 async def rfid_auth(rfid_uid: str, db: Session = Depends(get_db)):
@@ -15,6 +19,10 @@ async def rfid_auth(rfid_uid: str, db: Session = Depends(get_db)):
     Authenticate or create a user with RFID card.
     If the card is not registered, creates a new user with temporary credentials.
     """
+    # Validate RFID format
+    if not is_valid_rfid_format(rfid_uid):
+        raise HTTPException(status_code=400, detail="Invalid RFID format")
+    
     # Check if the RFID card is already registered
     user = db.query(User).filter(User.rfid_uid == rfid_uid).first()
     
@@ -56,6 +64,11 @@ async def rfid_auth(rfid_uid: str, db: Session = Depends(get_db)):
             "token_type": "bearer",
             "temp_password": temp_password  # Include temporary password in response
         }
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database error")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Could not create temporary user") 
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error") 

@@ -132,12 +132,25 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classs
     exit 1
 }
 
+# Create Nginx security configuration
+cat > /etc/nginx/conf.d/security.conf << EOF
+# Security settings
+server_tokens off;
+client_max_body_size 10M;
+client_body_timeout 12;
+client_header_timeout 12;
+send_timeout 10;
+
+# Rate limiting zone
+limit_req_zone \$binary_remote_addr zone=api:10m rate=5r/s;
+EOF
+
 # Configure Nginx for HTTP only
 print_message "Configuring Nginx..."
 cat > /etc/nginx/sites-available/classserver << EOF
 server {
     listen 80;
-    server_name $SERVER_ADDRESS;
+    server_name \$SERVER_ADDRESS;
 
     # Security headers (even for HTTP)
     add_header X-Frame-Options "SAMEORIGIN";
@@ -168,21 +181,7 @@ server {
         limit_req zone=api burst=10 nodelay;
         limit_req_status 429;
     }
-
-    # Rate limiting zone
-    limit_req_zone \$binary_remote_addr zone=api:10m rate=5r/s;
 }
-EOF
-
-# Create Nginx security configuration
-cat > /etc/nginx/conf.d/security.conf << EOF
-# Security settings
-server_tokens off;
-client_max_body_size 10M;
-client_body_timeout 12;
-client_header_timeout 12;
-keepalive_timeout 15;
-send_timeout 10;
 EOF
 
 # Configure Nginx

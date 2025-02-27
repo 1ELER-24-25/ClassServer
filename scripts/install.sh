@@ -318,7 +318,7 @@ mkdir -p src/{components,hooks,pages,lib,types,components/layouts,components/aut
 print_message "Creating auth hook..."
 cat > src/hooks/useAuth.ts << EOF
 import { create } from 'zustand';
-import { User } from '@types/user';
+import type { User } from '../types';
 
 interface AuthState {
   user: User | null;
@@ -472,6 +472,67 @@ function App() {
 export default App;
 EOF
 
+# Create types
+print_message "Creating type definitions..."
+cat > src/types/index.ts << EOF
+export interface User {
+  id: number;
+  email: string;
+  username: string;
+  isAdmin: boolean;
+}
+EOF
+
+# Create tsconfig.json
+print_message "Creating TypeScript configuration..."
+cat > tsconfig.json << EOF
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@types/*": ["./src/types/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+EOF
+
+# Create tsconfig.node.json
+print_message "Creating Node TypeScript configuration..."
+cat > tsconfig.node.json << EOF
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+EOF
+
 # Update package.json dependencies
 print_message "Updating package.json..."
 cat > package.json << EOF
@@ -480,6 +541,7 @@ cat > package.json << EOF
   "version": "1.0.0",
   "private": true,
   "description": "Frontend application for ClassServer",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -512,40 +574,6 @@ cat > package.json << EOF
     "vite": "^5.1.0"
   }
 }
-EOF
-
-# Create types
-print_message "Creating type definitions..."
-cat > src/types/user.ts << EOF
-export interface User {
-  id: number;
-  email: string;
-  username: string;
-  isAdmin: boolean;
-}
-EOF
-
-# Update useAuth hook
-print_message "Updating auth hook..."
-cat > src/hooks/useAuth.ts << EOF
-import { create } from 'zustand';
-import { User } from '@types/user';
-
-interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  login: (user: User) => void;
-  logout: () => void;
-}
-
-export const useAuth = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
-  isAdmin: false,
-  login: (user) => set({ user, isAuthenticated: true, isAdmin: user.isAdmin }),
-  logout: () => set({ user: null, isAuthenticated: false, isAdmin: false }),
-}));
 EOF
 
 # Create MainLayout component

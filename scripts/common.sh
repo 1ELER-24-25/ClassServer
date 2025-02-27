@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# Define color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Print functions
+print_message() {
+    echo -e "${GREEN}[Setup] ${NC}$1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[Warning] ${NC}$1"
+}
+
+print_error() {
+    echo -e "${RED}[Error] ${NC}$1"
+}
+
+# Export print functions
+export -f print_message
+export -f print_warning
+export -f print_error
+
 # Validate IP address
 validate_ip() {
     if echo "$1" | grep -qP '^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$'; then

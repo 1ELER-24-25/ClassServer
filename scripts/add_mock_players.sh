@@ -15,6 +15,8 @@ cd /opt/ClassServer/backend
 # Create necessary directories
 mkdir -p src/scripts
 mkdir -p src/config
+mkdir -p src/models
+mkdir -p routes
 
 # Create database configuration file
 print_message "Creating database configuration..."
@@ -26,6 +28,294 @@ module.exports = {
   host: 'localhost',
   dialect: 'postgres',
   logging: false
+};
+EOF
+
+# Create model files
+print_message "Creating database models..."
+
+# Create User model if it doesn't exist
+if [ ! -f "src/models/user.js" ]; then
+    print_message "Creating User model..."
+    cat > src/models/user.js << 'EOF'
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const User = sequelize.define('User', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isEmail: true
+      }
+    },
+    rfid_uid: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'users',
+    timestamps: true,
+    underscored: true
+  });
+
+  return User;
+};
+EOF
+fi
+
+# Create Game model
+print_message "Creating Game model..."
+cat > src/models/game.js << 'EOF'
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const Game = sequelize.define('Game', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'games',
+    timestamps: true,
+    underscored: true
+  });
+
+  return Game;
+};
+EOF
+
+# Create Match model
+print_message "Creating Match model..."
+cat > src/models/match.js << 'EOF'
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const Match = sequelize.define('Match', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    player1_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    player2_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    game_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'games',
+        key: 'id'
+      }
+    },
+    player1_score: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    player2_score: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    winner_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    played_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'matches',
+    timestamps: true,
+    underscored: true
+  });
+
+  return Match;
+};
+EOF
+
+# Create UserElo model
+print_message "Creating UserElo model..."
+cat > src/models/userElo.js << 'EOF'
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const UserElo = sequelize.define('UserElo', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    game_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'games',
+        key: 'id'
+      }
+    },
+    rating: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1200 // Default ELO rating
+    },
+    wins: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    losses: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    last_played: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'user_elos',
+    timestamps: true,
+    underscored: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['user_id', 'game_id']
+      }
+    ]
+  });
+
+  return UserElo;
+};
+EOF
+
+# Create models index file
+print_message "Creating models index file..."
+cat > src/models/index.js << 'EOF'
+const { Sequelize } = require('sequelize');
+const config = require('../config/database');
+
+const sequelize = new Sequelize(config.database, config.username, config.password, {
+  host: config.host,
+  dialect: config.dialect,
+  logging: false
+});
+
+// Import models
+const User = require('./user')(sequelize);
+const Game = require('./game')(sequelize);
+const Match = require('./match')(sequelize);
+const UserElo = require('./userElo')(sequelize);
+
+// Define associations
+User.hasMany(Match, { foreignKey: 'player1_id' });
+User.hasMany(Match, { foreignKey: 'player2_id' });
+User.hasMany(UserElo, { foreignKey: 'user_id' });
+
+Game.hasMany(Match, { foreignKey: 'game_id' });
+Game.hasMany(UserElo, { foreignKey: 'game_id' });
+
+Match.belongsTo(User, { as: 'player1', foreignKey: 'player1_id' });
+Match.belongsTo(User, { as: 'player2', foreignKey: 'player2_id' });
+Match.belongsTo(Game, { foreignKey: 'game_id' });
+
+UserElo.belongsTo(User, { foreignKey: 'user_id' });
+UserElo.belongsTo(Game, { foreignKey: 'game_id' });
+
+module.exports = {
+  sequelize,
+  User,
+  Game,
+  Match,
+  UserElo
 };
 EOF
 
@@ -331,6 +621,41 @@ router.get('/leaderboard/:gameType', async (req, res) => {
 module.exports = router;
 EOF
 fi
+
+# Create a simple auth router if it doesn't exist
+if [ ! -f "routes/auth.js" ]; then
+    print_message "Creating auth router..."
+    
+    cat > routes/auth.js << 'EOF'
+const express = require('express');
+const router = express.Router();
+const { User } = require('../src/models');
+
+/**
+ * @route GET /auth/users
+ * @desc Get all users
+ * @access Public
+ */
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email', 'rfid_uid', 'active']
+    });
+    
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+module.exports = router;
+EOF
+fi
+
+# Install required npm packages
+print_message "Installing required npm packages..."
+npm install --save express sequelize pg pg-hstore cors morgan
 
 # Run the mock data script
 print_message "Running mock data script..."

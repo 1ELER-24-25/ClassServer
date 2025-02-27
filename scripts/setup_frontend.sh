@@ -14,9 +14,9 @@ SERVER_ADDRESS=$(get_server_address)
 print_message "Creating frontend directory structure..."
 mkdir -p /opt/ClassServer/frontend/src/{components,hooks,pages,types,utils}
 
-# Copy frontend files
+# Copy frontend files from repository
 print_message "Copying frontend files..."
-cp -r frontend/* /opt/ClassServer/frontend/
+cp -r "$(dirname "$SCRIPT_DIR")/frontend/"* /opt/ClassServer/frontend/
 
 # Create .env file for Vite
 print_message "Creating frontend environment configuration..."

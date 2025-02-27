@@ -9,59 +9,29 @@ source "$SCRIPT_DIR/common.sh"
 
 print_message "Adding mock players to the database..."
 
+# Check if database is set up
+if ! PGPASSWORD="classserver" psql -h localhost -U "classserver" -d "classserver" -c "SELECT 1" > /dev/null 2>&1; then
+    print_error "Database connection failed. Please run setup_database.sh first."
+    exit 1
+fi
+
 # Navigate to backend directory
 cd /opt/ClassServer/backend
 
 # Create necessary directories
 mkdir -p src/scripts
-mkdir -p src/config
 mkdir -p src/models
 mkdir -p routes
-
-# Check if PostgreSQL is installed
-if ! command -v psql &> /dev/null; then
-    print_error "PostgreSQL is not installed. Please install it first."
-    exit 1
-fi
 
 # Set database credentials
 DB_NAME="classserver"
 DB_USER="classserver"
 DB_PASSWORD=${DB_PASSWORD:-"classserver"}
 
-# Check if PostgreSQL user exists and create if needed
-print_message "Checking PostgreSQL user..."
-if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
-    print_message "Creating PostgreSQL user '$DB_USER'..."
-    sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-fi
-
-# Check if database exists and create if needed
-print_message "Checking PostgreSQL database..."
-if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
-    print_message "Creating PostgreSQL database '$DB_NAME'..."
-    sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
-fi
-
-# Grant privileges
-print_message "Granting privileges..."
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
-
-# Export password for Sequelize to use
+# Export database environment variables for the script
+export DB_NAME="$DB_NAME"
+export DB_USER="$DB_USER"
 export DB_PASSWORD="$DB_PASSWORD"
-
-# Create database configuration file
-print_message "Creating database configuration..."
-cat > src/config/database.js << 'EOF'
-module.exports = {
-  database: process.env.DB_NAME || 'classserver',
-  username: process.env.DB_USER || 'classserver',
-  password: process.env.DB_PASSWORD || 'classserver',
-  host: process.env.DB_HOST || 'localhost',
-  dialect: 'postgres',
-  logging: false
-};
-EOF
 
 # Create model files
 print_message "Creating database models..."
@@ -689,10 +659,6 @@ fi
 print_message "Installing required npm packages..."
 npm install --save express sequelize pg pg-hstore cors morgan
 
-# Export database environment variables for the script
-export DB_NAME="$DB_NAME"
-export DB_USER="$DB_USER"
-
 # Run the mock data script
 print_message "Running mock data script..."
 node src/scripts/add_mock_data.js
@@ -703,10 +669,4 @@ systemctl restart classserver-backend || {
     print_warning "Failed to restart backend service. It may not be set up as a systemd service yet."
 }
 
-print_message "Mock players added successfully!"
-print_message "If you encountered any database connection issues, you may need to:"
-print_message "1. Check if PostgreSQL is running: sudo systemctl status postgresql"
-print_message "2. Verify PostgreSQL authentication settings in pg_hba.conf"
-print_message "3. Manually create the user and database:"
-print_message "   sudo -u postgres psql -c \"CREATE USER classserver WITH PASSWORD 'classserver';\""
-print_message "   sudo -u postgres psql -c \"CREATE DATABASE classserver OWNER classserver;\"" 
+print_message "Mock players added successfully!" 

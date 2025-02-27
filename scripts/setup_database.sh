@@ -7,42 +7,89 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Get database password
-DB_PASSWORD=$(get_db_password)
+print_message "Setting up PostgreSQL database for ClassServer..."
 
-# Start and enable PostgreSQL
-print_message "Starting PostgreSQL server..."
-systemctl start postgresql || {
-    print_error "Failed to start PostgreSQL server"
+# Check if PostgreSQL is installed
+if ! command -v psql &> /dev/null; then
+    print_error "PostgreSQL is not installed. Please install it first with:"
+    print_error "sudo apt update && sudo apt install -y postgresql postgresql-contrib"
     exit 1
-}
-systemctl enable postgresql || {
-    print_error "Failed to enable PostgreSQL server"
-    exit 1
-}
+fi
 
-# Configure PostgreSQL with error handling
-print_message "Configuring PostgreSQL..."
-sudo -u postgres psql -c "DO \$do\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'classserver') THEN CREATE USER classserver WITH PASSWORD '$DB_PASSWORD'; END IF; END \$do\$;" || {
-    print_error "Failed to create PostgreSQL user"
-    exit 1
-}
-sudo -u postgres psql -c "CREATE DATABASE classserver WITH OWNER classserver;" 2>/dev/null || true
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE classserver TO classserver;" || {
-    print_error "Failed to grant privileges to PostgreSQL user"
-    exit 1
-}
+# Check if PostgreSQL is running
+if ! systemctl is-active --quiet postgresql; then
+    print_message "Starting PostgreSQL service..."
+    sudo systemctl start postgresql
+fi
 
-# Save database configuration
-mkdir -p /opt/ClassServer/config
-cat > /opt/ClassServer/config/database.env << EOF
-DB_PASSWORD="$DB_PASSWORD"
-DB_USER="classserver"
+# Set database credentials
 DB_NAME="classserver"
-DB_HOST="localhost"
+DB_USER="classserver"
+DB_PASSWORD=${DB_PASSWORD:-"classserver"}
+
+# Check if PostgreSQL user exists and create if needed
+print_message "Checking PostgreSQL user..."
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
+    print_message "Creating PostgreSQL user '$DB_USER'..."
+    sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+fi
+
+# Check if database exists and create if needed
+print_message "Checking PostgreSQL database..."
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
+    print_message "Creating PostgreSQL database '$DB_NAME'..."
+    sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+fi
+
+# Grant privileges
+print_message "Granting privileges..."
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+
+# Update PostgreSQL authentication configuration
+print_message "Updating PostgreSQL authentication configuration..."
+
+# Check if the entry already exists to avoid duplicates
+if ! sudo grep -q "^host    $DB_NAME    $DB_USER    127.0.0.1/32    md5" /etc/postgresql/*/main/pg_hba.conf; then
+    # Add entry for host connections (used by Node.js)
+    sudo bash -c "echo 'host    $DB_NAME    $DB_USER    127.0.0.1/32    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+fi
+
+if ! sudo grep -q "^local   $DB_NAME    $DB_USER    md5" /etc/postgresql/*/main/pg_hba.conf; then
+    # Add entry for local connections
+    sudo bash -c "echo 'local   $DB_NAME    $DB_USER    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+fi
+
+# Restart PostgreSQL to apply changes
+print_message "Restarting PostgreSQL service..."
+sudo systemctl restart postgresql
+
+# Verify connection
+print_message "Verifying database connection..."
+if PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
+    print_success "Database connection successful!"
+else
+    print_error "Failed to connect to the database. Please check your PostgreSQL configuration."
+    exit 1
+fi
+
+# Create backend directory structure if it doesn't exist
+print_message "Creating backend directory structure..."
+BACKEND_DIR="/opt/ClassServer/backend"
+sudo mkdir -p "$BACKEND_DIR/src/config"
+sudo chown -R $(whoami) "$BACKEND_DIR"
+
+# Create database configuration file
+print_message "Creating database configuration file..."
+cat > "$BACKEND_DIR/src/config/database.js" << EOF
+module.exports = {
+  database: process.env.DB_NAME || '$DB_NAME',
+  username: process.env.DB_USER || '$DB_USER',
+  password: process.env.DB_PASSWORD || '$DB_PASSWORD',
+  host: process.env.DB_HOST || 'localhost',
+  dialect: 'postgres',
+  logging: false
+};
 EOF
 
-chmod 600 /opt/ClassServer/config/database.env
-chown www-data:www-data /opt/ClassServer/config/database.env
-
-print_message "Database setup completed successfully!" 
+print_message "Database setup completed successfully!"
+print_message "You can now run the add_mock_players.sh script to populate the database with mock data." 

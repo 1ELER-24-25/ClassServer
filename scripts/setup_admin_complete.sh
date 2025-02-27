@@ -593,9 +593,9 @@ const startServer = async () => {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
     
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    // Start server - listen on all network interfaces
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT} and accessible from network`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -714,8 +714,15 @@ systemctl restart classserver-backend || {
     print_message "You can start the backend manually with: cd /opt/ClassServer/backend && node src/index.js"
 }
 
+# Get server IP address for display
+SERVER_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$SERVER_IP" ]; then
+    SERVER_IP="your-server-ip"
+fi
+
 print_success "AdminJS admin panel setup completed successfully!"
 print_message "You can now use the admin panel at: http://localhost:8000/admin"
+print_message "Or from other machines on the network at: http://${SERVER_IP}:8000/admin"
 print_message "Login with:"
 print_message "  Email: admin@classserver.com"
 print_message "  Password: classserver"

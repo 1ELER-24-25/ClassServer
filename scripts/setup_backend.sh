@@ -11,7 +11,10 @@ source "$SCRIPT_DIR/common.sh"
 print_message "Setting up Node.js backend..."
 
 # Navigate to the backend directory
-cd /opt/ClassServer || exit 1
+cd /opt/ClassServer/backend || {
+    print_error "Failed to navigate to backend directory"
+    exit 1
+}
 
 # Install Node.js dependencies
 print_message "Installing Node.js dependencies..."
@@ -25,4 +28,54 @@ source /opt/ClassServer/config/database.env
 
 # Create backend service with enhanced security
 print_message "Creating backend service..."
-# Add commands to set up the Node.js service, e.g., using systemd 
+cat > /etc/systemd/system/classserver-backend.service << EOF
+[Unit]
+Description=ClassServer Backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ClassServer/backend
+Environment="DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Start and enable backend service
+print_message "Starting backend service..."
+systemctl daemon-reload || {
+    print_error "Failed to reload systemd configuration"
+    exit 1
+}
+
+systemctl enable classserver-backend || {
+    print_error "Failed to enable backend service"
+    exit 1
+}
+
+systemctl start classserver-backend || {
+    print_error "Failed to start backend service"
+    exit 1
+}
+
+print_message "Backend setup completed successfully!" 

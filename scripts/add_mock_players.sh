@@ -12,8 +12,22 @@ print_message "Adding mock players to the database..."
 # Navigate to backend directory
 cd /opt/ClassServer/backend
 
-# Create scripts directory if it doesn't exist
+# Create necessary directories
 mkdir -p src/scripts
+mkdir -p src/config
+
+# Create database configuration file
+print_message "Creating database configuration..."
+cat > src/config/database.js << 'EOF'
+module.exports = {
+  database: 'classserver',
+  username: 'classserver',
+  password: process.env.DB_PASSWORD || 'classserver',
+  host: 'localhost',
+  dialect: 'postgres',
+  logging: false
+};
+EOF
 
 # Check if the mock data script exists
 if [ ! -f "src/scripts/add_mock_data.js" ]; then
@@ -170,9 +184,69 @@ addMockData();
 EOF
 fi
 
+# Check if main.js exists, if not create it
+if [ ! -f "main.js" ]; then
+    print_message "Creating main.js file..."
+    
+    # Create the file
+    cat > main.js << 'EOF'
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const { sequelize } = require('./src/models');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const gamesRoutes = require('./routes/games');
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(morgan('dev'));
+
+// Routes
+app.use('/auth', authRoutes);
+app.use('/games', gamesRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to ClassServer API' });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
+// Start server
+async function startServer() {
+  try {
+    // Test database connection
+    await sequelize.authenticate();
+    console.log('Database connection established successfully');
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+}
+
+startServer();
+EOF
+fi
+
 # Check if the games router exists
 if [ ! -f "routes/games.js" ]; then
     print_message "Creating games router..."
+    
+    # Create routes directory if it doesn't exist
+    mkdir -p routes
     
     # Create the router
     cat > routes/games.js << 'EOF'
@@ -258,72 +332,14 @@ module.exports = router;
 EOF
 fi
 
-# Update main.js to include the games router
-if ! grep -q "gamesRoutes" main.js; then
-    print_message "Updating main.js to include games router..."
-    
-    # Create a temporary file
-    cat > main.js.tmp << 'EOF'
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const { sequelize } = require('./src/models');
-
-// Import routes
-const authRoutes = require('./routes/auth');
-const gamesRoutes = require('./routes/games');
-
-const app = express();
-const PORT = process.env.PORT || 8000;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
-
-// Routes
-app.use('/auth', authRoutes);
-app.use('/games', gamesRoutes);
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to ClassServer API' });
-});
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy' });
-});
-
-// Start server
-async function startServer() {
-  try {
-    // Test database connection
-    await sequelize.authenticate();
-    console.log('Database connection established successfully');
-    
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Unable to connect to the database:', error);
-  }
-}
-
-startServer();
-EOF
-    
-    # Replace the original file
-    mv main.js.tmp main.js
-fi
-
 # Run the mock data script
 print_message "Running mock data script..."
 node src/scripts/add_mock_data.js
 
 # Restart the backend service
 print_message "Restarting backend service..."
-systemctl restart classserver-backend
+systemctl restart classserver-backend || {
+    print_warning "Failed to restart backend service. It may not be set up as a systemd service yet."
+}
 
 print_message "Mock players added successfully!" 

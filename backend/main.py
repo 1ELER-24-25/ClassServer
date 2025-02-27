@@ -16,6 +16,6 @@ app.add_middleware(
 async def root():
     return {"message": "Welcome to ClassServer API"}
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
     return {"status": "healthy"} 

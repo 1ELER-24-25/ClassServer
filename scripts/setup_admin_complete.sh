@@ -30,6 +30,11 @@ else
   print_message "package.json already supports ES Modules"
 fi
 
+# Create .adminjs directory with proper permissions
+print_message "Creating .adminjs directory with proper permissions..."
+mkdir -p .adminjs
+chmod -R 755 .adminjs
+
 # Create routes directory if it doesn't exist
 mkdir -p src/routes
 
@@ -140,7 +145,7 @@ router.get('/:id/leaderboard', async (req, res) => {
           attributes: ['id', 'username', 'email']
         }
       ],
-      order: [['elo', 'DESC']]
+      order: [['rating', 'DESC']]
     });
     
     return res.status(200).json(leaderboard);
@@ -151,6 +156,253 @@ router.get('/:id/leaderboard', async (req, res) => {
 });
 
 export default router;
+EOF
+
+# Update the Match model file to match database schema
+print_message "Updating Match model file to match database schema..."
+cat > src/models/match.js << 'EOF'
+import { DataTypes } from 'sequelize';
+
+export default (sequelize) => {
+  const Match = sequelize.define('Match', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    game_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'games',
+        key: 'id'
+      }
+    },
+    player1_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    player2_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    player1_score: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    player2_score: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    winner_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    played_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'matches',
+    timestamps: true,
+    underscored: true
+  });
+
+  return Match;
+};
+EOF
+
+# Update the UserElo model file to match database schema
+print_message "Updating UserElo model file to match database schema..."
+cat > src/models/userElo.js << 'EOF'
+import { DataTypes } from 'sequelize';
+
+export default (sequelize) => {
+  const UserElo = sequelize.define('UserElo', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    game_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'games',
+        key: 'id'
+      }
+    },
+    rating: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1200
+    },
+    wins: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    losses: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    last_played: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'user_elos',
+    timestamps: true,
+    underscored: true
+  });
+
+  return UserElo;
+};
+EOF
+
+# Update the models/index.js file to use correct associations
+print_message "Updating models/index.js file with correct associations..."
+cat > src/models/index.js << 'EOF'
+import { Sequelize } from 'sequelize';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { readdirSync } from 'fs';
+
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Database configuration
+const config = {
+  username: process.env.DB_USERNAME || 'classserver',
+  password: process.env.DB_PASSWORD || 'classserver',
+  database: process.env.DB_NAME || 'classserver',
+  host: process.env.DB_HOST || 'localhost',
+  dialect: 'postgres',
+  logging: false
+};
+
+// Create Sequelize instance
+const sequelize = new Sequelize(
+  config.database,
+  config.username,
+  config.password,
+  {
+    host: config.host,
+    dialect: config.dialect,
+    logging: config.logging,
+    define: {
+      underscored: true,
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  }
+);
+
+// Import all models dynamically
+const importModels = async () => {
+  const models = {};
+  
+  // Read all files in the models directory
+  const files = readdirSync(__dirname)
+    .filter(file => file !== 'index.js' && file.endsWith('.js'));
+  
+  // Import each model file
+  for (const file of files) {
+    const modelPath = join(__dirname, file);
+    const modelModule = await import(modelPath);
+    const model = modelModule.default(sequelize);
+    models[model.name] = model;
+  }
+  
+  return models;
+};
+
+// Initialize models and associations
+const initializeModels = async () => {
+  const models = await importModels();
+  
+  // Define associations
+  if (models.User && models.Match) {
+    models.User.hasMany(models.Match, { foreignKey: 'player1_id', as: 'matchesAsPlayer1' });
+    models.User.hasMany(models.Match, { foreignKey: 'player2_id', as: 'matchesAsPlayer2' });
+    models.User.hasMany(models.Match, { foreignKey: 'winner_id', as: 'wonMatches' });
+    models.Match.belongsTo(models.User, { foreignKey: 'player1_id', as: 'player1' });
+    models.Match.belongsTo(models.User, { foreignKey: 'player2_id', as: 'player2' });
+    models.Match.belongsTo(models.User, { foreignKey: 'winner_id', as: 'winner' });
+  }
+  
+  if (models.Game && models.Match) {
+    models.Game.hasMany(models.Match, { foreignKey: 'game_id' });
+    models.Match.belongsTo(models.Game, { foreignKey: 'game_id' });
+  }
+  
+  if (models.User && models.UserElo && models.Game) {
+    models.User.hasMany(models.UserElo, { foreignKey: 'user_id' });
+    models.Game.hasMany(models.UserElo, { foreignKey: 'game_id' });
+    models.UserElo.belongsTo(models.User, { foreignKey: 'user_id' });
+    models.UserElo.belongsTo(models.Game, { foreignKey: 'game_id' });
+  }
+  
+  return models;
+};
+
+// Initialize models
+const db = { sequelize, Sequelize };
+
+// Export the database object
+export default db;
+
+// Initialize models when this module is imported
+(async () => {
+  try {
+    const models = await initializeModels();
+    Object.assign(db, models);
+    console.log('Models initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize models:', error);
+  }
+})();
 EOF
 
 # Create AdminJS configuration file
@@ -241,9 +493,9 @@ const initializeAdmin = async () => {
         resource: db.Match,
         options: {
           navigation: { name: 'Match History', icon: 'Activity' },
-          listProperties: ['id', 'game_id', 'winner_id', 'loser_id', 'winner_score', 'loser_score', 'played_at'],
-          editProperties: ['game_id', 'winner_id', 'loser_id', 'winner_score', 'loser_score', 'played_at'],
-          filterProperties: ['game_id', 'winner_id', 'loser_id', 'played_at'],
+          listProperties: ['id', 'game_id', 'player1_id', 'player2_id', 'player1_score', 'player2_score', 'winner_id', 'played_at'],
+          editProperties: ['game_id', 'player1_id', 'player2_id', 'player1_score', 'player2_score', 'winner_id', 'played_at'],
+          filterProperties: ['game_id', 'player1_id', 'player2_id', 'winner_id', 'played_at'],
           properties: {
             id: { isTitle: true },
             played_at: { 
@@ -259,11 +511,16 @@ const initializeAdmin = async () => {
         resource: db.UserElo,
         options: {
           navigation: { name: 'ELO Ratings', icon: 'Star' },
-          listProperties: ['id', 'user_id', 'game_id', 'elo', 'created_at'],
-          editProperties: ['user_id', 'game_id', 'elo'],
-          filterProperties: ['user_id', 'game_id', 'elo'],
+          listProperties: ['id', 'user_id', 'game_id', 'rating', 'wins', 'losses', 'last_played', 'created_at'],
+          editProperties: ['user_id', 'game_id', 'rating', 'wins', 'losses', 'last_played'],
+          filterProperties: ['user_id', 'game_id', 'rating', 'wins', 'losses'],
           properties: {
             id: { isTitle: true },
+            rating: { isTitle: true },
+            last_played: {
+              isVisible: { list: true, filter: true, show: true, edit: true },
+              type: 'datetime'
+            },
             created_at: { isVisible: { list: true, filter: true, show: true, edit: false } },
             updated_at: { isVisible: { list: false, filter: true, show: true, edit: false } }
           }
@@ -408,34 +665,24 @@ const addSampleData = async () => {
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     
     await db.Match.bulkCreate([
-      { game_id: 1, winner_id: 1, loser_id: 2, winner_score: 3, loser_score: 2, played_at: now },
-      { game_id: 1, winner_id: 3, loser_id: 4, winner_score: 2, loser_score: 0, played_at: yesterday },
-      { game_id: 2, winner_id: 2, loser_id: 3, winner_score: 21, loser_score: 15, played_at: twoDaysAgo },
-      { game_id: 2, winner_id: 1, loser_id: 4, winner_score: 21, loser_score: 18, played_at: threeDaysAgo },
-      { game_id: 3, winner_id: 4, loser_id: 1, winner_score: 10, loser_score: 8, played_at: yesterday },
-      { game_id: 3, winner_id: 3, loser_id: 2, winner_score: 10, loser_score: 5, played_at: now },
-      { game_id: 4, winner_id: 2, loser_id: 1, winner_score: 301, loser_score: 275, played_at: twoDaysAgo },
-      { game_id: 4, winner_id: 4, loser_id: 3, winner_score: 301, loser_score: 268, played_at: threeDaysAgo }
+      { game_id: 1, player1_id: 1, player2_id: 2, player1_score: 3, player2_score: 2, winner_id: 1, played_at: now },
+      { game_id: 1, player1_id: 3, player2_id: 4, player1_score: 2, player2_score: 0, winner_id: 3, played_at: yesterday },
+      { game_id: 2, player1_id: 2, player2_id: 3, player1_score: 21, player2_score: 15, winner_id: 2, played_at: twoDaysAgo },
+      { game_id: 2, player1_id: 1, player2_id: 4, player1_score: 21, player2_score: 18, winner_id: 1, played_at: threeDaysAgo },
+      { game_id: 3, player1_id: 4, player2_id: 1, player1_score: 10, player2_score: 8, winner_id: 4, played_at: yesterday },
+      { game_id: 3, player1_id: 3, player2_id: 2, player1_score: 10, player2_score: 5, winner_id: 3, played_at: now }
     ]);
     
     console.log('Adding sample ELO ratings...');
     await db.UserElo.bulkCreate([
-      { user_id: 1, game_id: 1, elo: 1520 },
-      { user_id: 2, game_id: 1, elo: 1480 },
-      { user_id: 3, game_id: 1, elo: 1550 },
-      { user_id: 4, game_id: 1, elo: 1450 },
-      { user_id: 1, game_id: 2, elo: 1510 },
-      { user_id: 2, game_id: 2, elo: 1540 },
-      { user_id: 3, game_id: 2, elo: 1470 },
-      { user_id: 4, game_id: 2, elo: 1480 },
-      { user_id: 1, game_id: 3, elo: 1490 },
-      { user_id: 2, game_id: 3, elo: 1480 },
-      { user_id: 3, game_id: 3, elo: 1530 },
-      { user_id: 4, game_id: 3, elo: 1500 },
-      { user_id: 1, game_id: 4, elo: 1490 },
-      { user_id: 2, game_id: 4, elo: 1520 },
-      { user_id: 3, game_id: 4, elo: 1480 },
-      { user_id: 4, game_id: 4, elo: 1510 }
+      { user_id: 1, game_id: 1, rating: 1520, wins: 5, losses: 2, last_played: now },
+      { user_id: 2, game_id: 1, rating: 1480, wins: 3, losses: 4, last_played: yesterday },
+      { user_id: 3, game_id: 1, rating: 1550, wins: 7, losses: 1, last_played: twoDaysAgo },
+      { user_id: 4, game_id: 1, rating: 1450, wins: 2, losses: 5, last_played: threeDaysAgo },
+      { user_id: 1, game_id: 2, rating: 1510, wins: 4, losses: 3, last_played: now },
+      { user_id: 2, game_id: 2, rating: 1540, wins: 6, losses: 2, last_played: yesterday },
+      { user_id: 3, game_id: 2, rating: 1470, wins: 3, losses: 4, last_played: twoDaysAgo },
+      { user_id: 4, game_id: 2, rating: 1480, wins: 3, losses: 3, last_played: threeDaysAgo }
     ]);
     
     console.log('Sample data added successfully!');

@@ -2,10 +2,36 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  rfid_uid: string;
   isAdmin: boolean;
+  rfid_uid?: string;
   active: boolean;
-  created_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface LoginForm {
+  username: string;
+  password: string;
+}
+
+export interface RegisterForm {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface EditUserForm {
+  username?: string;
+  email?: string;
+  password?: string;
+  isAdmin?: boolean;
+  rfid_uid?: string;
+  active?: boolean;
 }
 
 export interface Game {
@@ -50,12 +76,4 @@ export interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
-}
-
-export interface EditUserForm {
-  username: string;
-  email: string;
-  rfid_uid: string;
-  isAdmin: boolean;
-  password?: string;
 } 

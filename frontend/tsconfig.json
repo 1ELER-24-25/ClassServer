@@ -19,10 +19,10 @@
     "paths": {
       "@/*": ["src/*"],
       "@components/*": ["src/components/*"],
-      "@hooks/*": ["src/hooks/*"],
       "@pages/*": ["src/pages/*"],
-      "@lib/*": ["src/lib/*"],
-      "@types/*": ["src/types/*"]
+      "@hooks/*": ["src/hooks/*"],
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"]
     }
   },
   "include": ["src"],

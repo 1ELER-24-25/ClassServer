@@ -7,489 +7,154 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-print_message "Setting up AdminJS for ClassServer..."
+print_message "Setting up AdminJS admin panel..."
 
 # Navigate to backend directory
 cd /opt/ClassServer/backend
 
-# Step 1: Install AdminJS and required packages
+# Install required packages
 print_message "Installing AdminJS and required packages..."
 npm install adminjs @adminjs/express @adminjs/sequelize express-formidable express-session
 
-# Step 2: Update package.json to support ES Modules
+# Update package.json to support ES Modules
 print_message "Updating package.json to support ES Modules..."
-cat > package.json << 'EOF'
-{
-  "name": "@classserver/backend",
-  "version": "1.0.0",
-  "description": "ClassServer Backend API",
-  "type": "module",
-  "main": "src/index.js",
-  "scripts": {
-    "start": "nodemon src/index.js",
-    "build": "echo \"No build step required\" && exit 0",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint .",
-    "migrate": "sequelize-cli db:migrate",
-    "seed": "sequelize-cli db:seed:all"
-  },
-  "dependencies": {
-    "@adminjs/express": "^6.0.0",
-    "@adminjs/sequelize": "^4.0.0",
-    "adminjs": "^7.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "express-formidable": "^1.2.0",
-    "express-session": "^1.17.3",
-    "morgan": "^1.10.0",
-    "pg": "^8.10.0",
-    "pg-hstore": "^2.3.4",
-    "sequelize": "^6.31.0"
-  },
-  "devDependencies": {
-    "eslint": "^8.38.0",
-    "nodemon": "^3.0.1",
-    "sequelize-cli": "^6.6.0"
-  }
-}
-EOF
-
-# Step 3: Convert model files to ES Modules
-print_message "Converting model files to ES Modules..."
-
-# Fix game.js
-print_message "Updating src/models/game.js..."
-cat > src/models/game.js << 'EOF'
-import { DataTypes } from 'sequelize';
-
-export default (sequelize) => {
-  const Game = sequelize.define('Game', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    }
-  }, {
-    tableName: 'games',
-    timestamps: true,
-    underscored: true
-  });
-
-  return Game;
-};
-EOF
-
-# Fix match.js
-print_message "Updating src/models/match.js..."
-cat > src/models/match.js << 'EOF'
-import { DataTypes } from 'sequelize';
-
-export default (sequelize) => {
-  const Match = sequelize.define('Match', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    game_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'games',
-        key: 'id'
-      }
-    },
-    winner_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    loser_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    winner_score: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    loser_score: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    played_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    }
-  }, {
-    tableName: 'matches',
-    timestamps: true,
-    underscored: true
-  });
-
-  return Match;
-};
-EOF
-
-# Fix user.js
-print_message "Updating src/models/user.js..."
-cat > src/models/user.js << 'EOF'
-import { DataTypes } from 'sequelize';
-
-export default (sequelize) => {
-  const User = sequelize.define('User', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    username: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
-    },
-    rfid_uid: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true,
-      validate: {
-        isEmail: true
-      }
-    },
-    active: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    }
-  }, {
-    tableName: 'users',
-    timestamps: true,
-    underscored: true
-  });
-
-  return User;
-};
-EOF
-
-# Fix userElo.js
-print_message "Updating src/models/userElo.js..."
-cat > src/models/userElo.js << 'EOF'
-import { DataTypes } from 'sequelize';
-
-export default (sequelize) => {
-  const UserElo = sequelize.define('UserElo', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    game_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'games',
-        key: 'id'
-      }
-    },
-    elo: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 1000
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    }
-  }, {
-    tableName: 'user_elos',
-    timestamps: true,
-    underscored: true
-  });
-
-  return UserElo;
-};
-EOF
-
-# Fix index.js
-print_message "Updating src/models/index.js..."
-cat > src/models/index.js << 'EOF'
-import { Sequelize } from 'sequelize';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { readdirSync } from 'fs';
-
-// Get the directory name of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Database configuration
-const config = {
-  username: process.env.DB_USERNAME || 'classserver',
-  password: process.env.DB_PASSWORD || 'classserver',
-  database: process.env.DB_NAME || 'classserver',
-  host: process.env.DB_HOST || 'localhost',
-  dialect: 'postgres',
-  logging: false
-};
-
-// Create Sequelize instance
-const sequelize = new Sequelize(
-  config.database,
-  config.username,
-  config.password,
-  {
-    host: config.host,
-    dialect: config.dialect,
-    logging: config.logging,
-    define: {
-      underscored: true,
-      timestamps: true,
-      createdAt: 'created_at',
-      updatedAt: 'updated_at'
-    }
-  }
-);
-
-// Import all models dynamically
-const importModels = async () => {
-  const models = {};
+if ! grep -q '"type": "module"' package.json; then
+  # Create a backup of the original package.json
+  cp package.json package.json.bak
   
-  // Read all files in the models directory
-  const files = readdirSync(__dirname)
-    .filter(file => file !== 'index.js' && file.endsWith('.js'));
+  # Add "type": "module" to package.json
+  sed -i '/"name": "@classserver\/backend"/a \  "type": "module",' package.json
   
-  // Import each model file
-  for (const file of files) {
-    const modelPath = join(__dirname, file);
-    const modelModule = await import(modelPath);
-    const model = modelModule.default(sequelize);
-    models[model.name] = model;
-  }
-  
-  return models;
-};
+  print_success "package.json updated to support ES Modules"
+else
+  print_message "package.json already supports ES Modules"
+fi
 
-// Initialize models and associations
-const initializeModels = async () => {
-  const models = await importModels();
-  
-  // Define associations
-  if (models.User && models.Match) {
-    models.User.hasMany(models.Match, { foreignKey: 'winner_id', as: 'wonMatches' });
-    models.User.hasMany(models.Match, { foreignKey: 'loser_id', as: 'lostMatches' });
-    models.Match.belongsTo(models.User, { foreignKey: 'winner_id', as: 'winner' });
-    models.Match.belongsTo(models.User, { foreignKey: 'loser_id', as: 'loser' });
-  }
-  
-  if (models.Game && models.Match) {
-    models.Game.hasMany(models.Match, { foreignKey: 'game_id' });
-    models.Match.belongsTo(models.Game, { foreignKey: 'game_id' });
-  }
-  
-  if (models.User && models.UserElo && models.Game) {
-    models.User.hasMany(models.UserElo, { foreignKey: 'user_id' });
-    models.Game.hasMany(models.UserElo, { foreignKey: 'game_id' });
-    models.UserElo.belongsTo(models.User, { foreignKey: 'user_id' });
-    models.UserElo.belongsTo(models.Game, { foreignKey: 'game_id' });
-  }
-  
-  return models;
-};
+# Create routes directory if it doesn't exist
+mkdir -p src/routes
 
-// Initialize models
-const db = { sequelize, Sequelize };
-
-// Export the database object
-export default db;
-
-// Initialize models when this module is imported
-(async () => {
-  try {
-    const models = await initializeModels();
-    Object.assign(db, models);
-    console.log('Models initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize models:', error);
-  }
-})();
-EOF
-
-# Step 4: Fix route files
-print_message "Updating route files..."
-
-# Fix auth.js
-print_message "Updating routes/auth.js..."
-cat > routes/auth.js << 'EOF'
+# Create auth.js route file
+print_message "Creating auth.js route file..."
+cat > src/routes/auth.js << 'EOF'
 import express from 'express';
-import db from '../src/models/index.js';
+import db from '../models/index.js';
 
 const router = express.Router();
-const { User } = db;
 
-/**
- * @route GET /auth/users
- * @desc Get all users
- * @access Public
- */
-router.get('/users', async (req, res) => {
+// Login route
+router.post('/login', async (req, res) => {
   try {
-    const users = await User.findAll({
-      attributes: ['id', 'username', 'email', 'rfid_uid', 'active']
+    const { username, password } = req.body;
+    
+    // Simple authentication for now
+    // In production, use proper password hashing
+    const user = await db.User.findOne({
+      where: { username, active: true }
     });
     
-    res.json(users);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    // In a real app, you would verify the password hash here
+    
+    return res.status(200).json({
+      id: user.id,
+      username: user.username,
+      email: user.email
+    });
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
+});
+
+// Get current user
+router.get('/me', async (req, res) => {
+  // In a real app, you would verify the JWT token here
+  // For now, just return a placeholder response
+  return res.status(200).json({ message: 'Authentication required' });
 });
 
 export default router;
 EOF
 
-# Fix games.js
-print_message "Updating routes/games.js..."
-cat > routes/games.js << 'EOF'
+# Create games.js route file
+print_message "Creating games.js route file..."
+cat > src/routes/games.js << 'EOF'
 import express from 'express';
-import db from '../src/models/index.js';
+import db from '../models/index.js';
 
 const router = express.Router();
-const { Game, Match, User, UserElo } = db;
 
-/**
- * @route GET /games
- * @desc Get all games
- * @access Public
- */
+// Get all games
 router.get('/', async (req, res) => {
   try {
-    const games = await Game.findAll();
-    res.json(games);
+    const games = await db.Game.findAll();
+    return res.status(200).json(games);
   } catch (error) {
     console.error('Error fetching games:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-/**
- * @route GET /games/:id
- * @desc Get game by ID
- * @access Public
- */
+// Get a specific game
 router.get('/:id', async (req, res) => {
   try {
-    const game = await Game.findByPk(req.params.id);
+    const game = await db.Game.findByPk(req.params.id);
+    
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
     }
-    res.json(game);
+    
+    return res.status(200).json(game);
   } catch (error) {
     console.error('Error fetching game:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-/**
- * @route GET /games/:id/matches
- * @desc Get matches for a game
- * @access Public
- */
+// Get matches for a specific game
 router.get('/:id/matches', async (req, res) => {
   try {
-    const matches = await Match.findAll({
+    const matches = await db.Match.findAll({
       where: { game_id: req.params.id },
-      include: [
-        { model: User, as: 'winner' },
-        { model: User, as: 'loser' },
-        { model: Game }
-      ]
+      order: [['played_at', 'DESC']]
     });
-    res.json(matches);
+    
+    return res.status(200).json(matches);
   } catch (error) {
     console.error('Error fetching matches:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-/**
- * @route GET /games/:id/rankings
- * @desc Get rankings for a game
- * @access Public
- */
-router.get('/:id/rankings', async (req, res) => {
+// Get leaderboard for a specific game
+router.get('/:id/leaderboard', async (req, res) => {
   try {
-    const rankings = await UserElo.findAll({
+    const leaderboard = await db.UserElo.findAll({
       where: { game_id: req.params.id },
-      include: [{ model: User }],
+      include: [
+        {
+          model: db.User,
+          attributes: ['id', 'username', 'email']
+        }
+      ],
       order: [['elo', 'DESC']]
     });
-    res.json(rankings);
+    
+    return res.status(200).json(leaderboard);
   } catch (error) {
-    console.error('Error fetching rankings:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching leaderboard:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
 export default router;
 EOF
 
-# Step 5: Create AdminJS setup
-print_message "Creating AdminJS setup..."
+# Create AdminJS configuration file
+print_message "Creating AdminJS configuration file..."
 cat > adminSetup.js << 'EOF'
 import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
@@ -500,124 +165,316 @@ import db from './src/models/index.js';
 // Register Sequelize adapter
 AdminJS.registerAdapter(AdminJSSequelize);
 
-// Define AdminJS instance
-const adminJs = new AdminJS({
-  databases: [db.sequelize],
-  rootPath: '/admin',
-  branding: {
-    companyName: 'ClassServer Admin',
-    logo: false,
-    favicon: '/favicon.ico',
-  }
-});
-
 // Create admin credentials - in production, use environment variables
 const DEFAULT_ADMIN = {
   email: 'admin@classserver.com',
   password: 'classserver',
-}
+};
 
-// Build and export the router
-const router = AdminJSExpress.buildAuthenticatedRouter(
-  adminJs,
-  {
-    authenticate: async (email, password) => {
-      // In production, use a proper user model with hashed passwords
-      if (email === DEFAULT_ADMIN.email && password === DEFAULT_ADMIN.password) {
-        return DEFAULT_ADMIN;
+// Function to initialize AdminJS with models
+const initializeAdmin = async () => {
+  // Wait for models to be loaded
+  await new Promise(resolve => {
+    const checkModels = () => {
+      if (db.User && db.Game && db.Match && db.UserElo) {
+        resolve();
+      } else {
+        setTimeout(checkModels, 100);
       }
-      return null;
-    },
-    cookieName: 'classserver-admin',
-    cookiePassword: 'some-secure-secret-password-used-to-sign-cookies',
-  },
-  null,
-  {
-    resave: false,
-    saveUninitialized: true,
-    secret: 'some-secret-key-for-session',
-    cookie: {
-      httpOnly: process.env.NODE_ENV === 'production',
-      secure: process.env.NODE_ENV === 'production',
-    },
-    name: 'classserver.admin.sid',
-  }
-);
+    };
+    checkModels();
+  });
 
-export { adminJs, router };
+  // Define AdminJS instance with models
+  const adminJs = new AdminJS({
+    databases: [db.sequelize],
+    rootPath: '/admin',
+    branding: {
+      companyName: 'ClassServer Admin',
+      logo: false,
+      favicon: '/favicon.ico',
+    },
+    resources: [
+      {
+        resource: db.User,
+        options: {
+          navigation: { name: 'User Management', icon: 'User' },
+          listProperties: ['id', 'username', 'email', 'rfid_uid', 'active', 'created_at'],
+          editProperties: ['username', 'email', 'rfid_uid', 'active'],
+          filterProperties: ['username', 'email', 'active', 'created_at'],
+          properties: {
+            id: { isTitle: true },
+            created_at: { isVisible: { list: true, filter: true, show: true, edit: false } },
+            updated_at: { isVisible: { list: false, filter: true, show: true, edit: false } }
+          },
+          actions: {
+            new: {
+              isAccessible: true,
+              before: async (request) => {
+                // Set default values for new users
+                request.payload = {
+                  ...request.payload,
+                  active: true
+                };
+                return request;
+              }
+            }
+          }
+        }
+      },
+      {
+        resource: db.Game,
+        options: {
+          navigation: { name: 'Game Management', icon: 'Game' },
+          listProperties: ['id', 'name', 'description', 'created_at'],
+          editProperties: ['name', 'description'],
+          filterProperties: ['name', 'created_at'],
+          properties: {
+            id: { isTitle: true },
+            name: { isTitle: true },
+            created_at: { isVisible: { list: true, filter: true, show: true, edit: false } },
+            updated_at: { isVisible: { list: false, filter: true, show: true, edit: false } }
+          }
+        }
+      },
+      {
+        resource: db.Match,
+        options: {
+          navigation: { name: 'Match History', icon: 'Activity' },
+          listProperties: ['id', 'game_id', 'winner_id', 'loser_id', 'winner_score', 'loser_score', 'played_at'],
+          editProperties: ['game_id', 'winner_id', 'loser_id', 'winner_score', 'loser_score', 'played_at'],
+          filterProperties: ['game_id', 'winner_id', 'loser_id', 'played_at'],
+          properties: {
+            id: { isTitle: true },
+            played_at: { 
+              isVisible: { list: true, filter: true, show: true, edit: true },
+              type: 'datetime'
+            },
+            created_at: { isVisible: { list: false, filter: true, show: true, edit: false } },
+            updated_at: { isVisible: { list: false, filter: true, show: true, edit: false } }
+          }
+        }
+      },
+      {
+        resource: db.UserElo,
+        options: {
+          navigation: { name: 'ELO Ratings', icon: 'Star' },
+          listProperties: ['id', 'user_id', 'game_id', 'elo', 'created_at'],
+          editProperties: ['user_id', 'game_id', 'elo'],
+          filterProperties: ['user_id', 'game_id', 'elo'],
+          properties: {
+            id: { isTitle: true },
+            created_at: { isVisible: { list: true, filter: true, show: true, edit: false } },
+            updated_at: { isVisible: { list: false, filter: true, show: true, edit: false } }
+          }
+        }
+      }
+    ]
+  });
+
+  // Build and export the router
+  const router = AdminJSExpress.buildAuthenticatedRouter(
+    adminJs,
+    {
+      authenticate: async (email, password) => {
+        // In production, use a proper user model with hashed passwords
+        if (email === DEFAULT_ADMIN.email && password === DEFAULT_ADMIN.password) {
+          return DEFAULT_ADMIN;
+        }
+        return null;
+      },
+      cookieName: 'classserver-admin',
+      cookiePassword: 'some-secure-secret-password-used-to-sign-cookies',
+    },
+    null,
+    {
+      resave: false,
+      saveUninitialized: true,
+      secret: 'some-secret-key-for-session',
+      cookie: {
+        httpOnly: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production',
+      },
+      name: 'classserver.admin.sid',
+    }
+  );
+
+  return { adminJs, router };
+};
+
+export { initializeAdmin };
 EOF
 
-# Step 6: Update src/index.js
-print_message "Updating src/index.js..."
+# Update src/index.js to use AdminJS
+print_message "Updating src/index.js to use AdminJS..."
 cat > src/index.js << 'EOF'
 import express from 'express';
 import cors from 'cors';
-import morgan from 'morgan';
-import db from './models/index.js';
-import { router as adminRouter } from '../adminSetup.js';
-
-// Import routes
-import authRoutes from '../routes/auth.js';
-import gamesRoutes from '../routes/games.js';
+import { initializeAdmin } from '../adminSetup.js';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Middleware
+// Only apply CORS middleware before AdminJS
 app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
 
-// Mount the admin panel
-app.use('/admin', adminRouter);
-
-// Routes
-app.use('/auth', authRoutes);
-app.use('/games', gamesRoutes);
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Welcome to ClassServer API',
-    adminPanel: `${req.protocol}://${req.get('host')}/admin`
-  });
-});
-
-// Health check
+// Health check route
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy' });
+  res.status(200).json({ status: 'ok' });
 });
 
-// Start server
-async function startServer() {
+// Initialize AdminJS asynchronously
+const startServer = async () => {
   try {
-    // Test database connection
-    await db.sequelize.authenticate();
-    console.log('Database connection established successfully');
+    // Initialize AdminJS
+    const { router: adminRouter } = await initializeAdmin();
+    
+    // Mount AdminJS router BEFORE body-parser middleware
+    app.use('/admin', adminRouter);
+    
+    // Apply body-parser middleware AFTER AdminJS router
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
     
     // Start server
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      console.log(`Admin panel available at: http://localhost:${PORT}/admin`);
     });
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-}
+};
 
-// Call the function to start the server
+// Start the server
 startServer();
 EOF
 
-# Step 7: Restart the backend service
+# Create a temporary JavaScript file to add sample data
+print_message "Creating script to add sample data..."
+cat > add_sample_data.js << 'EOF'
+import db from './src/models/index.js';
+
+// Wait for models to be initialized
+const waitForModels = async () => {
+  return new Promise(resolve => {
+    const checkModels = () => {
+      if (db.User && db.Game && db.Match && db.UserElo) {
+        resolve();
+      } else {
+        setTimeout(checkModels, 100);
+      }
+    };
+    checkModels();
+  });
+};
+
+// Add sample data
+const addSampleData = async () => {
+  try {
+    await waitForModels();
+    
+    // Check if data already exists
+    const userCount = await db.User.count();
+    if (userCount > 0) {
+      console.log('Sample data already exists, skipping...');
+      process.exit(0);
+      return;
+    }
+    
+    console.log('Adding sample users...');
+    const users = await db.User.bulkCreate([
+      { username: 'john_doe', email: 'john@example.com', rfid_uid: '12345678', active: true },
+      { username: 'jane_smith', email: 'jane@example.com', rfid_uid: '87654321', active: true },
+      { username: 'bob_johnson', email: 'bob@example.com', rfid_uid: '23456789', active: true },
+      { username: 'alice_williams', email: 'alice@example.com', rfid_uid: '98765432', active: true }
+    ]);
+    
+    console.log('Adding sample games...');
+    const games = await db.Game.bulkCreate([
+      { name: 'Chess', description: 'Classic strategy board game' },
+      { name: 'Ping Pong', description: 'Table tennis game' },
+      { name: 'Foosball', description: 'Table football game' },
+      { name: 'Darts', description: 'Throwing darts at a circular target' }
+    ]);
+    
+    console.log('Adding sample matches...');
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const twoDaysAgo = new Date(now);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const threeDaysAgo = new Date(now);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    
+    await db.Match.bulkCreate([
+      { game_id: 1, winner_id: 1, loser_id: 2, winner_score: 3, loser_score: 2, played_at: now },
+      { game_id: 1, winner_id: 3, loser_id: 4, winner_score: 2, loser_score: 0, played_at: yesterday },
+      { game_id: 2, winner_id: 2, loser_id: 3, winner_score: 21, loser_score: 15, played_at: twoDaysAgo },
+      { game_id: 2, winner_id: 1, loser_id: 4, winner_score: 21, loser_score: 18, played_at: threeDaysAgo },
+      { game_id: 3, winner_id: 4, loser_id: 1, winner_score: 10, loser_score: 8, played_at: yesterday },
+      { game_id: 3, winner_id: 3, loser_id: 2, winner_score: 10, loser_score: 5, played_at: now },
+      { game_id: 4, winner_id: 2, loser_id: 1, winner_score: 301, loser_score: 275, played_at: twoDaysAgo },
+      { game_id: 4, winner_id: 4, loser_id: 3, winner_score: 301, loser_score: 268, played_at: threeDaysAgo }
+    ]);
+    
+    console.log('Adding sample ELO ratings...');
+    await db.UserElo.bulkCreate([
+      { user_id: 1, game_id: 1, elo: 1520 },
+      { user_id: 2, game_id: 1, elo: 1480 },
+      { user_id: 3, game_id: 1, elo: 1550 },
+      { user_id: 4, game_id: 1, elo: 1450 },
+      { user_id: 1, game_id: 2, elo: 1510 },
+      { user_id: 2, game_id: 2, elo: 1540 },
+      { user_id: 3, game_id: 2, elo: 1470 },
+      { user_id: 4, game_id: 2, elo: 1480 },
+      { user_id: 1, game_id: 3, elo: 1490 },
+      { user_id: 2, game_id: 3, elo: 1480 },
+      { user_id: 3, game_id: 3, elo: 1530 },
+      { user_id: 4, game_id: 3, elo: 1500 },
+      { user_id: 1, game_id: 4, elo: 1490 },
+      { user_id: 2, game_id: 4, elo: 1520 },
+      { user_id: 3, game_id: 4, elo: 1480 },
+      { user_id: 4, game_id: 4, elo: 1510 }
+    ]);
+    
+    console.log('Sample data added successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error adding sample data:', error);
+    process.exit(1);
+  }
+};
+
+// Run the function
+addSampleData();
+EOF
+
+# Run the script to add sample data
+print_message "Adding sample data to the database..."
+node add_sample_data.js || {
+  print_warning "Failed to add sample data. This may be because data already exists."
+}
+
+# Clean up
+print_message "Cleaning up..."
+rm -f add_sample_data.js
+
+# Restart the backend service
 print_message "Restarting backend service..."
 systemctl restart classserver-backend || {
     print_warning "Failed to restart backend service. It may not be set up as a systemd service yet."
     print_message "You can start the backend manually with: cd /opt/ClassServer/backend && node src/index.js"
 }
 
-print_success "AdminJS setup completed successfully!"
-print_message "You can access the admin panel at: http://localhost:8000/admin"
+print_success "AdminJS admin panel setup completed successfully!"
+print_message "You can now use the admin panel at: http://localhost:8000/admin"
 print_message "Login with:"
 print_message "  Email: admin@classserver.com"
-print_message "  Password: classserver" 
+print_message "  Password: classserver"
+print_message ""
+print_message "The admin panel includes:"
+print_message "  - User Management: Add, edit, and delete users"
+print_message "  - Game Management: Manage game types"
+print_message "  - Match History: View and edit match records"
+print_message "  - ELO Ratings: Manage player ratings" 

@@ -53,6 +53,7 @@ run_setup "setup_backend.sh" "backend setup"
 run_setup "setup_frontend.sh" "frontend setup"
 run_setup "setup_nginx.sh" "web server setup"
 run_setup "setup_backup.sh" "backup configuration"
+run_setup "setup_admin_complete.sh" "admin panel setup"
 
 echo -e "\n${GREEN}================================================="
 echo "ClassServer installation completed successfully!"
@@ -61,6 +62,8 @@ echo "=================================================${NC}"
 # Print server address (using the already captured value)
 echo -e "\nYou can now access ClassServer at: ${GREEN}http://${SERVER_ADDRESS}${NC}"
 echo -e "API endpoint is available at: ${GREEN}http://${SERVER_ADDRESS}/api${NC}"
+echo -e "Admin panel is available at: ${GREEN}http://${SERVER_ADDRESS}/admin${NC}"
+echo -e "Admin login: ${YELLOW}admin@classserver.com${NC} / ${YELLOW}classserver${NC}"
 
 # Print monitoring instructions
 echo -e "\nTo monitor the services:"

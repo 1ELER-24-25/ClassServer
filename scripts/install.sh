@@ -150,7 +150,7 @@ print_message "Configuring Nginx..."
 cat > /etc/nginx/sites-available/classserver << EOF
 server {
     listen 80;
-    server_name \$SERVER_ADDRESS;
+    server_name ${SERVER_ADDRESS};
 
     # Security headers (even for HTTP)
     add_header X-Frame-Options "SAMEORIGIN";
@@ -161,7 +161,8 @@ server {
     # Serve static frontend files
     location / {
         root /opt/ClassServer/frontend/dist;
-        try_files \$uri \$uri/ /index.html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html =404;
         add_header Cache-Control "public, max-age=3600";
     }
 

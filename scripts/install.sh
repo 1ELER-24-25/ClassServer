@@ -25,6 +25,11 @@ echo "          ClassServer Installation Script          "
 echo "================================================="
 echo -e "${NC}"
 
+# Get server address once and export it for all scripts
+echo -e "\n${YELLOW}Setting up server configuration...${NC}"
+export SERVER_ADDRESS=$(get_server_address)
+echo -e "Using server address: ${GREEN}${SERVER_ADDRESS}${NC}\n"
+
 # Function to run a setup script and handle errors
 run_setup() {
     local script=$1
@@ -53,8 +58,7 @@ echo -e "\n${GREEN}================================================="
 echo "ClassServer installation completed successfully!"
 echo "=================================================${NC}"
 
-# Print server address
-SERVER_ADDRESS=$(get_server_address)
+# Print server address (using the already captured value)
 echo -e "\nYou can now access ClassServer at: ${GREEN}http://${SERVER_ADDRESS}${NC}"
 echo -e "API endpoint is available at: ${GREEN}http://${SERVER_ADDRESS}/api${NC}"
 

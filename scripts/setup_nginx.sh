@@ -7,8 +7,13 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Get server address
-SERVER_ADDRESS=$(get_server_address)
+# Use SERVER_ADDRESS from environment or get it if not set
+if [ -z "${SERVER_ADDRESS}" ]; then
+    print_warning "SERVER_ADDRESS not found in environment, prompting user..."
+    SERVER_ADDRESS=$(get_server_address)
+else
+    print_message "Using server address: ${SERVER_ADDRESS}"
+fi
 
 # Create Nginx security configuration
 print_message "Creating Nginx security configuration..."

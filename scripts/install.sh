@@ -67,21 +67,19 @@ while true; do
     break
 done
 
-while true; do
-    read -p "Enter GitHub repository URL (e.g., https://github.com/1ELER-24-25/ClassServer.git): " REPO_URL
-    if ! echo "$REPO_URL" | grep -qP '^https://github\.com/[^/]+/[^/]+(\.git)?$'; then
-        print_error "Invalid GitHub repository URL format"
-        continue
-    fi
-    break
-done
-
 # Create a backup of existing configuration if any
 if [ -d "/opt/ClassServer" ]; then
     BACKUP_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     print_warning "Existing ClassServer installation found. Creating backup..."
     tar -czf "/opt/classserver_backup_${BACKUP_TIMESTAMP}.tar.gz" /opt/ClassServer
 fi
+
+# Copy current repository to /opt
+print_message "Copying files to /opt/ClassServer..."
+cp -r "$(dirname "$(dirname "$0")")" /opt/ClassServer || {
+    print_error "Failed to copy files to /opt/ClassServer"
+    exit 1
+}
 
 # Update system
 print_message "Updating system packages..."
@@ -102,10 +100,19 @@ apt-get install -y \
     python3-pip \
     python3-venv \
     git \
-    nodejs \
-    npm \
     ufw || {
     print_error "Failed to install required packages"
+    exit 1
+}
+
+# Install Node.js 20.x
+print_message "Installing Node.js 20.x..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || {
+    print_error "Failed to setup Node.js repository"
+    exit 1
+}
+apt-get install -y nodejs || {
+    print_error "Failed to install Node.js"
     exit 1
 }
 
@@ -219,32 +226,9 @@ ufw allow OpenSSH || {
     exit 1
 }
 
-# Clone repository with proper error handling
-print_message "Cloning repository..."
-cd /opt || {
-    print_error "Failed to change to /opt directory"
-    exit 1
-}
-
-if [ -d "ClassServer" ]; then
-    print_warning "ClassServer directory already exists. Using backup created earlier..."
-    rm -rf ClassServer
-fi
-
-git clone "$REPO_URL" ClassServer || {
-    print_error "Failed to clone repository from $REPO_URL"
-    print_warning "Please check if the repository URL is correct and accessible"
-    exit 1
-}
-
-cd ClassServer || {
-    print_error "Failed to change to ClassServer directory"
-    exit 1
-}
-
 # Setup Python backend with enhanced error handling
 print_message "Setting up Python backend..."
-if [ ! -f "requirements.txt" ]; then
+if [ ! -f "/opt/ClassServer/requirements.txt" ]; then
     print_error "requirements.txt not found in /opt/ClassServer"
     print_warning "Please ensure the repository contains a requirements.txt file"
     exit 1
@@ -269,7 +253,7 @@ python -m pip install --upgrade pip || {
     exit 1
 }
 
-pip install -r requirements.txt || {
+pip install -r /opt/ClassServer/requirements.txt || {
     print_error "Failed to install Python dependencies"
     print_warning "Check requirements.txt for any invalid packages"
     exit 1
@@ -315,7 +299,7 @@ EOF
 
 # Setup frontend with improved error handling
 print_message "Setting up frontend..."
-cd frontend || {
+cd /opt/ClassServer/frontend || {
     print_error "Failed to change to frontend directory"
     exit 1
 }

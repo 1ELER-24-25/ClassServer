@@ -8,10 +8,10 @@ ADJECTIVES = [
 ]
 
 CHARACTERS = [
-    "Pikachu", "Mario", "Ivo", "Kaptein", "Flåklypa",
+    "Pikachu", "Mario", "Ingve", "Kaptein", "Nasse",
     "Snoopy", "Mickey", "Fantorangen", "Karius", "Baktus",
-    "Groot", "Nøste", "Pompel", "Garfield", "Goku",
-    "Pilt", "Ludvig", "Thorbjørn", "Charmander", "Plumbo"
+    "Groot", "Donald", "Pompel", "Garfield", "Pusur",
+    "Sabeltann", "Ludvig", "Charmander", "Plumbo", "Kongen"
 ]
 
 def generate_username():

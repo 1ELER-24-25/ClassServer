@@ -480,6 +480,17 @@ export interface User {
   email: string;
   username: string;
   isAdmin: boolean;
+  rfid_uid?: string;
+  active: boolean;
+}
+
+export interface EditUserForm {
+  email: string;
+  username: string;
+  isAdmin: boolean;
+  rfid_uid?: string;
+  active: boolean;
+  password?: string;
 }
 EOF
 
@@ -561,14 +572,18 @@ cat > package.json << EOF
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
-    "eslint": "^8.56.0",
+    "@eslint/config-array": "^1.0.4",
+    "@eslint/object-schema": "^1.0.2",
+    "eslint": "^9.0.0-alpha.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "glob": "^10.3.10",
     "postcss": "^8.4.35",
+    "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
     "vite": "^5.1.0"
@@ -974,4 +989,286 @@ print_message "   $(hostname -I | awk '{print $1}') $SERVER_ADDRESS"
 print_message "2. Verify the backend service: systemctl status classserver-backend"
 print_message "3. Check the backup system: /opt/ClassServer/scripts/backup.sh"
 print_message "4. Monitor logs: tail -f /var/log/classserver-backup.log"
-print_warning "Keep your database password safe: $DB_PASSWORD" 
+print_warning "Keep your database password safe: $DB_PASSWORD"
+
+# Create Users page
+print_message "Creating Users page..."
+cat > src/pages/admin/Users.tsx << EOF
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import axios from '@lib/axios';
+import { User, EditUserForm } from '@/types';
+
+const Users: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { data: users } = useQuery<User[]>('users', async () => {
+    const response = await axios.get('/users');
+    return response.data;
+  });
+
+  const createUser = useMutation(
+    async (data: EditUserForm) => {
+      const response = await axios.post('/users', data);
+      return response.data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('users');
+        setIsModalOpen(false);
+      },
+    }
+  );
+
+  const updateUser = useMutation(
+    async ({ id, data }: { id: number; data: EditUserForm }) => {
+      const response = await axios.put(\`/users/\${id}\`, data);
+      return response.data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('users');
+        setIsModalOpen(false);
+      },
+    }
+  );
+
+  const deleteUser = useMutation(
+    async (id: number) => {
+      await axios.delete(\`/users/\${id}\`);
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('users');
+      },
+    }
+  );
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const data: EditUserForm = {
+      email: formData.get('email') as string,
+      username: formData.get('username') as string,
+      isAdmin: formData.get('isAdmin') === 'true',
+      active: formData.get('active') === 'true',
+      rfid_uid: formData.get('rfid_uid') as string || undefined,
+    };
+
+    const password = formData.get('password') as string;
+    if (password) {
+      data.password = password;
+    }
+
+    if (selectedUser) {
+      await updateUser.mutateAsync({ id: selectedUser.id, data });
+    } else {
+      await createUser.mutateAsync(data);
+    }
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Users</h1>
+        <button
+          onClick={() => {
+            setSelectedUser(null);
+            setIsModalOpen(true);
+          }}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Add User
+        </button>
+      </div>
+
+      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Username
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                RFID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Admin
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {users?.map((user) => (
+              <tr key={user.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {user.username}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.rfid_uid}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.isAdmin ? 'Yes' : 'No'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {user.active ? (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Inactive
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <button
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setIsModalOpen(true);
+                    }}
+                    className="text-indigo-600 hover:text-indigo-900 mr-4"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this user?')) {
+                        deleteUser.mutate(user.id);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">
+                {selectedUser ? 'Edit User' : 'Add User'}
+              </h3>
+              <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    id="email"
+                    defaultValue={selectedUser?.email}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    name="username"
+                    id="username"
+                    defaultValue={selectedUser?.username}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rfid_uid" className="block text-sm font-medium text-gray-700">
+                    RFID UID
+                  </label>
+                  <input
+                    type="text"
+                    name="rfid_uid"
+                    id="rfid_uid"
+                    defaultValue={selectedUser?.rfid_uid}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Password {selectedUser && '(leave empty to keep current)'}
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                    {...(!selectedUser && { required: true })}
+                  />
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="isAdmin"
+                    id="isAdmin"
+                    defaultChecked={selectedUser?.isAdmin}
+                    value="true"
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-900">
+                    Admin
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="active"
+                    id="active"
+                    defaultChecked={selectedUser?.active ?? true}
+                    value="true"
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
+                    Active
+                  </label>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  >
+                    {selectedUser ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Users;
+EOF 

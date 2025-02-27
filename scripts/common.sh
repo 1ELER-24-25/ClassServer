@@ -4,6 +4,7 @@
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Print functions
@@ -19,10 +20,15 @@ print_error() {
     echo -e "${RED}[Error] ${NC}$1"
 }
 
+print_success() {
+    echo -e "${BLUE}[Success] ${NC}$1"
+}
+
 # Export print functions
 export -f print_message
 export -f print_warning
 export -f print_error
+export -f print_success
 
 # Validate IP address
 validate_ip() {

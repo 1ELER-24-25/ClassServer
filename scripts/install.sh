@@ -318,12 +318,7 @@ mkdir -p src/{components,hooks,pages,lib,types,components/layouts,components/aut
 print_message "Creating auth hook..."
 cat > src/hooks/useAuth.ts << EOF
 import { create } from 'zustand';
-
-interface User {
-  id: number;
-  email: string;
-  isAdmin: boolean;
-}
+import { User } from '@types/user';
 
 interface AuthState {
   user: User | null;
@@ -429,36 +424,48 @@ done
 print_message "Updating App.tsx..."
 cat > src/App.tsx << EOF
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import AuthLayout from '@components/layouts/AuthLayout';
+import MainLayout from '@components/layouts/MainLayout';
+import Login from '@pages/auth/Login';
 import Register from '@pages/auth/Register';
 import Dashboard from '@pages/Dashboard';
 import Profile from '@pages/Profile';
 import MatchHistory from '@pages/MatchHistory';
+import Leaderboard from '@pages/Leaderboard';
 import AdminBackup from '@pages/admin/Backup';
 import AdminGames from '@pages/admin/Games';
 import NotFound from '@pages/NotFound';
 import ProtectedRoute from '@components/auth/ProtectedRoute';
 import AdminRoute from '@components/auth/AdminRoute';
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="/register" element={<Register />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/matches" element={<MatchHistory />} />
-            <Route element={<AdminRoute />}>
-              <Route path="/admin/backup" element={<AdminBackup />} />
-              <Route path="/admin/games" element={<AdminGames />} />
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
+          <Route element={<MainLayout />}>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/matches" element={<MatchHistory />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin/backup" element={<AdminBackup />} />
+                <Route path="/admin/games" element={<AdminGames />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
@@ -470,9 +477,9 @@ print_message "Updating package.json..."
 cat > package.json << EOF
 {
   "name": "@classserver/frontend",
-  "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
+  "description": "Frontend application for ClassServer",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -480,17 +487,20 @@ cat > package.json << EOF
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.1.1",
+    "axios": "^1.6.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-query": "^3.39.3",
     "react-router-dom": "^6.22.1",
-    "zustand": "^4.5.1",
-    "@heroicons/react": "^2.1.1"
+    "zustand": "^4.5.1"
   },
   "devDependencies": {
-    "@types/react": "^18.2.56",
+    "@types/node": "^20.11.19",
+    "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.2",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
@@ -499,9 +509,292 @@ cat > package.json << EOF
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.4"
+    "vite": "^5.1.0"
   }
 }
+EOF
+
+# Create types
+print_message "Creating type definitions..."
+cat > src/types/user.ts << EOF
+export interface User {
+  id: number;
+  email: string;
+  username: string;
+  isAdmin: boolean;
+}
+EOF
+
+# Update useAuth hook
+print_message "Updating auth hook..."
+cat > src/hooks/useAuth.ts << EOF
+import { create } from 'zustand';
+import { User } from '@types/user';
+
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  login: (user: User) => void;
+  logout: () => void;
+}
+
+export const useAuth = create<AuthState>((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  login: (user) => set({ user, isAuthenticated: true, isAdmin: user.isAdmin }),
+  logout: () => set({ user: null, isAuthenticated: false, isAdmin: false }),
+}));
+EOF
+
+# Create MainLayout component
+print_message "Creating MainLayout component..."
+cat > src/components/layouts/MainLayout.tsx << EOF
+import React from 'react';
+import { Link, Outlet } from 'react-router-dom';
+import { useAuth } from '@hooks/useAuth';
+
+const MainLayout: React.FC = () => {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <Link to="/" className="flex items-center">
+                Home
+              </Link>
+            </div>
+            <div className="flex items-center">
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <p className="text-sm font-medium text-gray-700">{user.username}</p>
+                  <button onClick={logout} className="text-sm text-red-600">
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link to="/login" className="text-sm text-blue-600">
+                  Login
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main className="container mx-auto px-4 py-8">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
+export default MainLayout;
+EOF
+
+# Create axios configuration
+print_message "Creating axios configuration..."
+cat > src/lib/axios.ts << EOF
+import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
+
+const instance = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+instance.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem('token');
+    if (token && config.headers) {
+      config.headers.Authorization = \`Bearer \${token}\`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export default instance;
+EOF
+
+# Update Login page
+print_message "Updating Login page..."
+cat > src/pages/auth/Login.tsx << EOF
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@hooks/useAuth';
+import axios from '@lib/axios';
+
+const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('/auth/login', { email, password });
+      login(response.data.user);
+      navigate('/');
+    } catch (err) {
+      setError('Invalid credentials');
+    }
+  };
+
+  return (
+    <div>
+      <h1>Login</h1>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+        />
+        <button type="submit">Login</button>
+        {error && <p className="text-red-500">{error}</p>}
+      </form>
+    </div>
+  );
+};
+
+export default Login;
+EOF
+
+# Create Leaderboard page
+print_message "Creating Leaderboard page..."
+cat > src/pages/Leaderboard.tsx << EOF
+import React, { useState } from 'react';
+import { useQuery } from 'react-query';
+import axios from '@lib/axios';
+
+interface Player {
+  id: number;
+  username: string;
+  rating: number;
+}
+
+interface Game {
+  id: number;
+  name: string;
+  players: Player[];
+}
+
+const Leaderboard: React.FC = () => {
+  const [selectedGame, setSelectedGame] = useState<number | null>(null);
+
+  const { data: games } = useQuery<Game[]>('games', async () => {
+    const response = await axios.get('/games');
+    return response.data;
+  });
+
+  const selectedGameData = games?.find((game) => game.id === selectedGame);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Leaderboard</h1>
+      
+      <div className="flex space-x-4">
+        {games?.map((game) => (
+          <button
+            key={game.id}
+            onClick={() => setSelectedGame(game.id)}
+            className={\`px-4 py-2 rounded \${
+              selectedGame === game.id ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            }\`}
+          >
+            {game.name}
+          </button>
+        ))}
+      </div>
+
+      {selectedGameData && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-4">{selectedGameData.name} Rankings</h2>
+          <div className="bg-white shadow overflow-hidden rounded-lg">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rank
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Player
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rating
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {selectedGameData.players.map((player, index) => (
+                  <tr key={player.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {index + 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {player.username}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {player.rating}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Leaderboard;
+EOF
+
+# Create vite config
+print_message "Creating Vite configuration..."
+cat > vite.config.ts << EOF
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@types': path.resolve(__dirname, './src/types'),
+    },
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
 EOF
 
 # Clean install dependencies

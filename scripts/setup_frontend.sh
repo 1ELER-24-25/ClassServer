@@ -18,8 +18,8 @@ mkdir -p /opt/ClassServer/frontend
 print_message "Creating simplified React frontend..."
 cd /opt/ClassServer/frontend
 
-# Initialize a new React app with Vite using JavaScript
-print_message "Initializing new React app..."
+# Initialize a new React app with Vite using JavaScript and latest versions
+print_message "Initializing new React app with latest dependencies..."
 cat > package.json << EOF
 {
   "name": "classserver-frontend",
@@ -34,12 +34,12 @@ cat > package.json << EOF
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.10.0",
-    "axios": "^1.3.5"
+    "react-router-dom": "^6.22.0",
+    "axios": "^1.6.7"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^3.1.0",
-    "vite": "^4.2.0"
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^6.2.0"
   }
 }
 EOF
@@ -395,6 +395,12 @@ print_message "Installing dependencies..."
 npm install || {
     print_error "Failed to install dependencies"
     exit 1
+}
+
+# Fix vulnerabilities
+print_message "Fixing any vulnerabilities..."
+npm audit fix --force || {
+    print_warning "Could not fix all vulnerabilities automatically"
 }
 
 # Build the frontend

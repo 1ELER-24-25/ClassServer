@@ -31,98 +31,111 @@ if [ ! -d "/opt/ClassServer/backend" ]; then
     fi
 fi
 
-# Create backend directory if it doesn't exist
-if [ ! -d "/opt/ClassServer/backend" ]; then
-    print_message "Creating backend directory..."
-    mkdir -p /opt/ClassServer/backend
-    
-    # If backend directory still doesn't exist after copying, create a basic structure
-    print_message "Creating basic Node.js project structure..."
-    cd /opt/ClassServer/backend
-    
-    # Create a basic package.json if it doesn't exist
-    if [ ! -f "package.json" ]; then
-        cat > package.json << EOF
+# Create backend directory structure
+print_message "Creating backend directory structure..."
+mkdir -p /opt/ClassServer/backend/{src/{routes,models,config},logs}
+
+# Create package.json
+print_message "Creating package.json..."
+cat > /opt/ClassServer/backend/package.json << 'EOF'
 {
-  "name": "classserver-backend",
+  "name": "@classserver/backend",
   "version": "1.0.0",
-  "description": "ClassServer Backend",
-  "main": "index.js",
+  "description": "ClassServer backend service",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "pg": "^8.11.3",
-    "sequelize": "^6.35.1",
+    "@adminjs/express": "^5.1.0",
+    "@adminjs/sequelize": "^3.0.0",
+    "adminjs": "^6.8.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "express": "^4.18.2",
+    "express-formidable": "^1.2.0",
+    "express-session": "^1.17.3",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.32.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   }
 }
 EOF
-    fi
-    
-    # Create a basic index.js if it doesn't exist
-    if [ ! -f "index.js" ]; then
-        cat > index.js << EOF
-const express = require('express');
-const cors = require('cors');
+
+# Create basic index.js
+print_message "Creating src/index.js..."
+cat > /opt/ClassServer/backend/src/index.js << 'EOF'
+import express from 'express';
+import cors from 'cors';
+import { initializeAdmin } from '../adminSetup.js';
+
 const app = express();
-const port = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8000;
 
+// Apply CORS middleware
 app.use(cors());
-app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.json({ message: 'ClassServer API is running' });
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
-app.listen(port, () => {
-  console.log(\`Server running on port \${port}\`);
-});
+// Initialize AdminJS asynchronously
+const startServer = async () => {
+  try {
+    // Initialize AdminJS
+    const { router: adminRouter } = await initializeAdmin();
+    
+    // Mount AdminJS router BEFORE body-parser middleware
+    app.use('/admin', adminRouter);
+    
+    // Apply body-parser middleware AFTER AdminJS router
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+    
+    // Start server - listen on all network interfaces
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT} and accessible from network`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 EOF
-    fi
-else
-    # Navigate to the backend directory
-    cd /opt/ClassServer/backend || {
-        print_error "Failed to navigate to backend directory"
-        exit 1
-    }
-fi
+
+# Create database configuration
+print_message "Creating database configuration..."
+cat > /opt/ClassServer/backend/src/config/database.js << EOF
+module.exports = {
+  database: process.env.DB_NAME || 'classserver',
+  username: process.env.DB_USER || 'classserver',
+  password: process.env.DB_PASSWORD || 'classserver',
+  host: process.env.DB_HOST || 'localhost',
+  dialect: 'postgres',
+  logging: false
+};
+EOF
+
+# Navigate to the backend directory
+cd /opt/ClassServer/backend || {
+    print_error "Failed to navigate to backend directory"
+    exit 1
+}
 
 # Install Node.js dependencies
 print_message "Installing Node.js dependencies..."
 if ! npm install; then
     print_error "Failed to install Node.js dependencies"
     exit 1
-fi
-
-# Create config directory if it doesn't exist
-if [ ! -d "/opt/ClassServer/config" ]; then
-    print_message "Creating config directory..."
-    mkdir -p /opt/ClassServer/config
-    
-    # Create a basic database.env file if it doesn't exist
-    if [ ! -f "/opt/ClassServer/config/database.env" ]; then
-        cat > /opt/ClassServer/config/database.env << EOF
-DB_HOST=localhost
-DB_NAME=classserver
-DB_USER=classserver
-DB_PASSWORD=classserver
-EOF
-    fi
-fi
-
-# Load database configuration
-if [ -f "/opt/ClassServer/config/database.env" ]; then
-    source /opt/ClassServer/config/database.env
-else
-    print_warning "Database configuration file not found, using default values"
-    DB_HOST=localhost
-    DB_NAME=classserver
-    DB_USER=classserver
-    DB_PASSWORD=classserver
 fi
 
 # Create backend service with enhanced security
@@ -137,7 +150,7 @@ Requires=postgresql.service
 User=www-data
 Group=www-data
 WorkingDirectory=/opt/ClassServer/backend
-Environment="DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+Environment="DATABASE_URL=postgresql://classserver:classserver@localhost/classserver"
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=5
@@ -160,6 +173,11 @@ LockPersonality=yes
 WantedBy=multi-user.target
 EOF
 
+# Set correct permissions
+print_message "Setting correct permissions..."
+chown -R www-data:www-data /opt/ClassServer/backend
+chmod -R 750 /opt/ClassServer/backend
+
 # Start and enable backend service
 print_message "Starting backend service..."
 systemctl daemon-reload || {
@@ -177,8 +195,4 @@ systemctl start classserver-backend || {
     exit 1
 }
 
-# Setup AdminJS admin panel
-print_message "Setting up AdminJS admin panel..."
-"$SCRIPT_DIR/setup_admin.sh"
-
-print_message "Backend setup completed successfully!" 
+print_success "Backend setup completed successfully!" 

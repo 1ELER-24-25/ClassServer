@@ -195,6 +195,7 @@ const startServer = async () => {
     // Start server - listen on all network interfaces
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT} and accessible from network`);
+      console.log(`Admin interface available at: http://YOUR_SERVER_IP:${PORT}/admin`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -288,5 +289,22 @@ systemctl start classserver-backend || {
     print_error "Failed to start backend service"
     exit 1
 }
+
+# Verify backend service is running and listening
+print_message "Verifying backend service..."
+sleep 10  # Give the service some time to start up
+
+# Check if service is active
+if ! systemctl is-active --quiet classserver-backend; then
+    print_error "Backend service failed to start. Check logs with: sudo journalctl -u classserver-backend"
+    exit 1
+fi
+
+# Check if service is listening on port 8000
+if ! netstat -tulpn | grep -q ":8000"; then
+    print_warning "Backend service is running but not listening on port 8000. Check logs with: sudo journalctl -u classserver-backend"
+else
+    print_message "Backend service is running and listening on port 8000"
+fi
 
 print_success "Backend setup completed successfully!" 

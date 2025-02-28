@@ -5,9 +5,9 @@
 #include <SPI.h>
 
 // Network configuration
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
-const char* serverUrl = "http://your-server.com";
+const char* ssid = "YourWiFiSSID";  // Replace with your WiFi name
+const char* password = "YourWiFiPassword";  // Replace with your WiFi password
+const char* serverUrl = "http://localhost:8000";  // Your ClassServer backend URL
 
 // Game configuration
 const int GAME_TYPE_FOOSBALL = 2;
@@ -318,14 +318,16 @@ void handleShowingNewUser() {
 }
 
 void authenticateCard(String uid) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
   HTTPClient http;
-  String url = String(serverUrl) + "/api/rfid/auth";
+  String url = String(serverUrl) + "/auth/rfid/auth";
   
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   
   // Create JSON payload
-  JsonDocument doc;
+  StaticJsonDocument<200> doc;
   doc["rfid_uid"] = uid;
   String jsonString;
   serializeJson(doc, jsonString);
@@ -334,26 +336,81 @@ void authenticateCard(String uid) {
   
   if (httpCode == HTTP_CODE_OK) {
     String payload = http.getString();
-    JsonDocument response;
-    deserializeJson(response, payload);
+    StaticJsonDocument<512> response;
+    DeserializationError error = deserializeJson(response, payload);
     
-    currentUserName = response["user"]["username"].as<String>();
-    bool newUser = response["is_new_user"].as<bool>();
-    
-    if (newUser) {
-      currentState = SHOWING_NEW_USER;
-      isNewUser = true;  // Set flag to show credentials once
-    } else {
-      currentState = GAME_ACTIVE;
+    if (!error) {
+      bool isNewUser = response["is_new_user"];
+      const char* username = response["user"]["username"];
+      currentUserName = String(username);
+      
+      if (isNewUser) {
+        currentState = SHOWING_NEW_USER;
+        isNewUser = true;
+        const char* tempPassword = response["temp_password"];
+        Serial.println("New user created!");
+        Serial.println("Username: " + String(username));
+        Serial.println("Temporary password: " + String(tempPassword));
+      } else {
+        if (player1Uid.length() == 0) {
+          player1Uid = uid;
+          Serial.println("Player 1 registered: " + currentUserName);
+        } else if (player2Uid.length() == 0 && uid != player1Uid) {
+          player2Uid = uid;
+          Serial.println("Player 2 registered: " + currentUserName);
+          // Start the game when both players are registered
+          startGame();
+        }
+      }
       setLEDState(LED_GREEN);
+    } else {
+      Serial.println("JSON parsing failed");
+      setLEDState(LED_RED);
     }
-    
-    Serial.println("Authenticated as: " + currentUserName);
   } else {
-    Serial.println("Authentication failed");
+    Serial.println("Authentication failed: " + String(httpCode));
     setLEDState(LED_RED);
-    delay(1000);
-    currentState = WAITING_CARD;
+  }
+  
+  http.end();
+}
+
+void startGame() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  String url = String(serverUrl) + "/matches/start";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  
+  // Create JSON payload
+  StaticJsonDocument<200> doc;
+  doc["game_type"] = currentGameType;
+  doc["player1_uid"] = player1Uid;
+  doc["player2_uid"] = player2Uid;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  int httpCode = http.POST(jsonString);
+  
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    StaticJsonDocument<200> response;
+    DeserializationError error = deserializeJson(response, payload);
+    
+    if (!error) {
+      currentMatchId = response["match_id"].as<String>();
+      currentState = GAME_ACTIVE;
+      Serial.println("Game started! Match ID: " + currentMatchId);
+      setLEDState(LED_GREEN);
+    } else {
+      Serial.println("JSON parsing failed");
+      setLEDState(LED_RED);
+    }
+  } else {
+    Serial.println("Failed to start game: " + String(httpCode));
+    setLEDState(LED_RED);
   }
   
   http.end();
@@ -451,39 +508,56 @@ void setLEDState(int led) {
 bool updateScore() {
   if (WiFi.status() != WL_CONNECTED) return false;
 
-  JsonDocument doc;
-  doc["player1_score"] = player1Score;
-  doc["player2_score"] = player2Score;
-
-  String jsonString;
-  serializeJson(doc, jsonString);
-
   HTTPClient http;
-  http.begin(String(serverUrl) + "/matches/" + currentMatchId + "/score");
+  String url = String(serverUrl) + "/matches/" + currentMatchId + "/score";
+  
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
   
+  // Create JSON payload
+  StaticJsonDocument<200> doc;
+  doc["player1_score"] = player1Score;
+  doc["player2_score"] = player2Score;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
   int httpCode = http.POST(jsonString);
-  http.end();
-  return httpCode == HTTP_CODE_OK;
+  
+  if (httpCode == HTTP_CODE_OK) {
+    Serial.println("Score updated successfully");
+    // Check for game end
+    if (player1Score >= 10 || player2Score >= 10) {
+      currentState = GAME_ENDED;
+      int winner = player1Score > player2Score ? 1 : 2;
+      endGame(winner);
+    }
+    return true;
+  } else {
+    Serial.println("Failed to update score: " + String(httpCode));
+    return false;
+  }
 }
 
 bool endGame(int winner) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
-  JsonDocument doc;
-  doc["winner"] = winner;
-
-  String jsonString;
-  serializeJson(doc, jsonString);
-
   HTTPClient http;
-  http.begin(String(serverUrl) + "/matches/" + currentMatchId + "/end");
+  String url = String(serverUrl) + "/matches/" + currentMatchId + "/end";
+  
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
   
+  // Create JSON payload
+  StaticJsonDocument<200> doc;
+  doc["winner"] = winner;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
   int httpCode = http.POST(jsonString);
-  http.end();
   
   if (httpCode == HTTP_CODE_OK) {
+    Serial.println("Game ended successfully! Winner: Player " + String(winner));
+    // Reset game state
     currentState = WAITING_CARD;
     currentMatchId = "";
     player1Uid = "";
@@ -491,7 +565,8 @@ bool endGame(int winner) {
     player1Score = 0;
     player2Score = 0;
     return true;
+  } else {
+    Serial.println("Failed to end game: " + String(httpCode));
+    return false;
   }
-  
-  return false;
 } 

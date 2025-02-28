@@ -95,10 +95,45 @@ set_permissions() {
     chown -R www-data:www-data /opt/ClassServer
 }
 
+# Get network access configuration
+get_network_access() {
+    while true; do
+        echo "Select network access configuration for PostgreSQL:"
+        echo "1) Allow from all networks (0.0.0.0/0) - Less secure, most flexible"
+        echo "2) Allow from common private networks (192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12) - Good for most home/office setups"
+        echo "3) Allow from specific network (you'll be prompted for network address) - Most secure"
+        read -p "Enter choice [1-3]: " network_choice
+
+        case $network_choice in
+            1)
+                echo "0.0.0.0/0"
+                break
+                ;;
+            2)
+                echo "192.168.0.0/16 10.0.0.0/8 172.16.0.0/12"
+                break
+                ;;
+            3)
+                read -p "Enter network address (e.g., 192.168.1.0/24): " custom_network
+                if echo "$custom_network" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'; then
+                    echo "$custom_network"
+                    break
+                else
+                    print_error "Invalid network address format. Please use CIDR notation (e.g., 192.168.1.0/24)"
+                fi
+                ;;
+            *)
+                print_error "Invalid choice. Please enter 1, 2, or 3"
+                ;;
+        esac
+    done
+}
+
 # Export variables
 export -f validate_ip
 export -f validate_domain
 export -f get_server_address
 export -f get_db_password
 export -f backup_existing_installation
-export -f set_permissions 
+export -f set_permissions
+export -f get_network_access 

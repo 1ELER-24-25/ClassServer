@@ -48,9 +48,25 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 # Update PostgreSQL authentication configuration
 print_message "Updating PostgreSQL authentication configuration..."
 
-# Check if the entry already exists to avoid duplicates
+# Update PostgreSQL to listen on all interfaces
+print_message "Configuring PostgreSQL to listen on all interfaces..."
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf
+
+# Get network access configuration
+print_message "Configuring network access..."
+NETWORK_ACCESS=$(get_network_access)
+
+# Add network access rules
+for network in $NETWORK_ACCESS; do
+    if ! sudo grep -q "^host    $DB_NAME    $DB_USER    $network    md5" /etc/postgresql/*/main/pg_hba.conf; then
+        print_message "Adding access rule for network: $network"
+        sudo bash -c "echo 'host    $DB_NAME    $DB_USER    $network    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+    fi
+done
+
+# Always ensure localhost access
 if ! sudo grep -q "^host    $DB_NAME    $DB_USER    127.0.0.1/32    md5" /etc/postgresql/*/main/pg_hba.conf; then
-    # Add entry for host connections (used by Node.js)
+    # Add entry for localhost connections
     sudo bash -c "echo 'host    $DB_NAME    $DB_USER    127.0.0.1/32    md5' >> /etc/postgresql/*/main/pg_hba.conf"
 fi
 

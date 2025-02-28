@@ -174,6 +174,9 @@ const PORT = process.env.PORT || 8000;
 // Apply CORS middleware
 app.use(cors());
 
+// Add more detailed logging
+console.log('Starting server initialization...');
+
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -182,20 +185,29 @@ app.get('/health', (req, res) => {
 // Initialize AdminJS asynchronously
 const startServer = async () => {
   try {
+    console.log('Initializing AdminJS...');
     // Initialize AdminJS
     const { router: adminRouter } = await initializeAdmin();
+    console.log('AdminJS initialized successfully');
     
     // Mount AdminJS router BEFORE body-parser middleware
     app.use('/admin', adminRouter);
+    console.log('AdminJS router mounted');
     
     // Apply body-parser middleware AFTER AdminJS router
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
+    console.log('Middleware configured');
     
     // Start server - listen on all network interfaces
-    app.listen(PORT, '0.0.0.0', () => {
+    console.log('Attempting to start server on port', PORT);
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT} and accessible from network`);
       console.log(`Admin interface available at: http://YOUR_SERVER_IP:${PORT}/admin`);
+    });
+    
+    server.on('error', (err) => {
+      console.error('Server error:', err);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -204,7 +216,11 @@ const startServer = async () => {
 };
 
 // Start the server
-startServer();
+console.log('Calling startServer()...');
+startServer().catch(err => {
+  console.error('Unhandled error in startServer:', err);
+  process.exit(1);
+});
 EOF
 
 # Create database configuration

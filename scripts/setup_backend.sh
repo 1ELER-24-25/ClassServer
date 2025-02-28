@@ -67,6 +67,100 @@ cat > /opt/ClassServer/backend/package.json << 'EOF'
 }
 EOF
 
+# Create adminSetup.js
+print_message "Creating adminSetup.js..."
+cat > /opt/ClassServer/backend/adminSetup.js << 'EOF'
+import AdminJS from 'adminjs';
+import AdminJSExpress from '@adminjs/express';
+import AdminJSSequelize from '@adminjs/sequelize';
+import session from 'express-session';
+import { Sequelize } from 'sequelize';
+
+// Register Sequelize adapter
+AdminJS.registerAdapter(AdminJSSequelize);
+
+// Create admin credentials - in production, use environment variables
+const DEFAULT_ADMIN = {
+  email: 'admin@classserver.com',
+  password: 'classserver',
+};
+
+// Database configuration
+const config = {
+  username: process.env.DB_USER || 'classserver',
+  password: process.env.DB_PASSWORD || 'classserver',
+  database: process.env.DB_NAME || 'classserver',
+  host: process.env.DB_HOST || 'localhost',
+  dialect: 'postgres',
+  logging: false
+};
+
+// Create Sequelize instance
+const sequelize = new Sequelize(
+  config.database,
+  config.username,
+  config.password,
+  {
+    host: config.host,
+    dialect: config.dialect,
+    logging: config.logging
+  }
+);
+
+// Function to initialize AdminJS
+const initializeAdmin = async () => {
+  try {
+    // Test database connection
+    await sequelize.authenticate();
+    console.log('Database connection established successfully');
+    
+    // Define AdminJS instance
+    const adminJs = new AdminJS({
+      databases: [sequelize],
+      rootPath: '/admin',
+      branding: {
+        companyName: 'ClassServer Admin',
+        logo: false,
+        favicon: '/favicon.ico',
+      }
+    });
+
+    // Build and export the router
+    const router = AdminJSExpress.buildAuthenticatedRouter(
+      adminJs,
+      {
+        authenticate: async (email, password) => {
+          if (email === DEFAULT_ADMIN.email && password === DEFAULT_ADMIN.password) {
+            return DEFAULT_ADMIN;
+          }
+          return null;
+        },
+        cookieName: 'classserver-admin',
+        cookiePassword: 'some-secure-secret-password-used-to-sign-cookies',
+      },
+      null,
+      {
+        resave: false,
+        saveUninitialized: true,
+        secret: 'some-secret-key-for-session',
+        cookie: {
+          httpOnly: process.env.NODE_ENV === 'production',
+          secure: process.env.NODE_ENV === 'production',
+        },
+        name: 'classserver.admin.sid',
+      }
+    );
+
+    return { adminJs, router };
+  } catch (error) {
+    console.error('Failed to initialize AdminJS:', error);
+    throw error;
+  }
+};
+
+export { initializeAdmin };
+EOF
+
 # Create basic index.js
 print_message "Creating src/index.js..."
 cat > /opt/ClassServer/backend/src/index.js << 'EOF'

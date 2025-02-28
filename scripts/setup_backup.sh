@@ -9,34 +9,53 @@ source "$SCRIPT_DIR/common.sh"
 
 # Create backup directories
 print_message "Creating backup directories..."
-mkdir -p /opt/ClassServer/backups/{database,config}
-chmod 700 /opt/ClassServer/backups
+sudo mkdir -p /opt/ClassServer/backups/{database,config}
+sudo mkdir -p /opt/ClassServer/scripts
+sudo chmod 700 /opt/ClassServer/backups
+
+# Create database environment file if it doesn't exist
+print_message "Creating database environment file..."
+if [ ! -f "/opt/ClassServer/config/database.env" ]; then
+    sudo mkdir -p /opt/ClassServer/config
+    cat > /opt/ClassServer/config/database.env << EOF
+POSTGRES_USER=classserver
+POSTGRES_PASSWORD=classserver
+POSTGRES_DB=classserver
+POSTGRES_HOST=localhost
+EOF
+fi
 
 # Create backup script
 print_message "Creating backup script..."
 cat > /opt/ClassServer/scripts/backup.sh << 'EOF'
 #!/bin/bash
 
-# Load database configuration
-source /opt/ClassServer/config/database.env
-
 # Set backup directory
 BACKUP_DIR="/opt/ClassServer/backups"
 DATE=$(date +%Y-%m-%d_%H-%M-%S)
 
+# Database credentials
+DB_USER="classserver"
+DB_NAME="classserver"
+
 # Backup database
-pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$BACKUP_DIR/database/db_backup_$DATE.sql"
+print_message "Creating database backup..."
+pg_dump -U "$DB_USER" "$DB_NAME" > "$BACKUP_DIR/database/db_backup_$DATE.sql"
 
 # Backup configuration files
+print_message "Creating configuration backup..."
 tar -czf "$BACKUP_DIR/config/config_backup_$DATE.tar.gz" /opt/ClassServer/config/
 
 # Remove backups older than 7 days
+print_message "Cleaning up old backups..."
 find "$BACKUP_DIR/database" -name "db_backup_*.sql" -mtime +7 -delete
 find "$BACKUP_DIR/config" -name "config_backup_*.tar.gz" -mtime +7 -delete
+
+print_message "Backup completed successfully!"
 EOF
 
 # Make backup script executable
-chmod +x /opt/ClassServer/scripts/backup.sh
+sudo chmod +x /opt/ClassServer/scripts/backup.sh
 
 # Create cron job for daily backups at 3 AM
 print_message "Setting up daily backup cron job..."
@@ -44,8 +63,8 @@ print_message "Setting up daily backup cron job..."
 
 # Set backup directory permissions
 print_message "Setting backup permissions..."
-chown -R postgres:postgres /opt/ClassServer/backups/database
-chown -R root:root /opt/ClassServer/backups/config
-chmod 700 /opt/ClassServer/backups/{database,config}
+sudo chown -R postgres:postgres /opt/ClassServer/backups/database
+sudo chown -R root:root /opt/ClassServer/backups/config
+sudo chmod 700 /opt/ClassServer/backups/{database,config}
 
-print_message "Backup setup completed successfully!" 
+print_success "Backup setup completed successfully!" 

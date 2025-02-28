@@ -98,11 +98,12 @@ set_permissions() {
 # Get network access configuration
 get_network_access() {
     while true; do
-        echo "Select network access configuration for PostgreSQL:"
-        echo "1) Allow from all networks (0.0.0.0/0) - Less secure, most flexible"
-        echo "2) Allow from common private networks (192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12) - Good for most home/office setups"
-        echo "3) Allow from specific network (you'll be prompted for network address) - Most secure"
-        read -p "Enter choice [1-3]: " network_choice
+        # Write menu to stderr instead of stdout
+        echo "Select network access configuration for PostgreSQL:" >&2
+        echo "1) Allow from all networks (0.0.0.0/0) - Less secure, most flexible" >&2
+        echo "2) Allow from common private networks (192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12) - Good for most home/office setups" >&2
+        echo "3) Allow from specific network (you'll be prompted for network address) - Most secure" >&2
+        read -p "Enter choice [1-3]: " network_choice >&2
 
         case $network_choice in
             1)
@@ -114,7 +115,7 @@ get_network_access() {
                 break
                 ;;
             3)
-                read -p "Enter network address (e.g., 192.168.1.0/24): " custom_network
+                read -p "Enter network address (e.g., 192.168.1.0/24): " custom_network >&2
                 if echo "$custom_network" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'; then
                     echo "$custom_network"
                     break

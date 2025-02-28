@@ -9,6 +9,25 @@ source "$SCRIPT_DIR/common.sh"
 
 print_message "Setting up PostgreSQL database for ClassServer..."
 
+# Function to ensure PostgreSQL is running
+ensure_postgresql_running() {
+    print_message "Checking PostgreSQL service status..."
+    if ! systemctl is-active --quiet postgresql; then
+        print_message "PostgreSQL is not running. Attempting to start..."
+        sudo systemctl start postgresql
+        # Wait for PostgreSQL to start
+        for i in {1..30}; do
+            if sudo -u postgres psql -c '\l' >/dev/null 2>&1; then
+                print_success "PostgreSQL started successfully"
+                return 0
+            fi
+            sleep 1
+        done
+        print_error "Failed to start PostgreSQL. Please check the logs with: sudo journalctl -u postgresql"
+        exit 1
+    fi
+}
+
 # Check if PostgreSQL is installed
 if ! command -v psql &> /dev/null; then
     print_error "PostgreSQL is not installed. Please install it first with:"
@@ -16,11 +35,8 @@ if ! command -v psql &> /dev/null; then
     exit 1
 fi
 
-# Check if PostgreSQL is running
-if ! systemctl is-active --quiet postgresql; then
-    print_message "Starting PostgreSQL service..."
-    sudo systemctl start postgresql
-fi
+# Ensure PostgreSQL is running before proceeding
+ensure_postgresql_running
 
 # Set database credentials
 DB_NAME="classserver"
@@ -48,9 +64,19 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 # Update PostgreSQL authentication configuration
 print_message "Updating PostgreSQL authentication configuration..."
 
+# Backup existing pg_hba.conf
+PG_HBA_CONF=$(find /etc/postgresql -name "pg_hba.conf")
+if [ -f "$PG_HBA_CONF" ]; then
+    print_message "Backing up existing pg_hba.conf..."
+    sudo cp "$PG_HBA_CONF" "${PG_HBA_CONF}.bak"
+fi
+
 # Update PostgreSQL to listen on all interfaces
 print_message "Configuring PostgreSQL to listen on all interfaces..."
-sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf
+PG_CONF=$(find /etc/postgresql -name "postgresql.conf")
+if [ -f "$PG_CONF" ]; then
+    sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONF"
+fi
 
 # Get network access configuration
 print_message "Configuring network access..."
@@ -58,26 +84,31 @@ NETWORK_ACCESS=$(get_network_access)
 
 # Add network access rules
 for network in $NETWORK_ACCESS; do
-    if ! sudo grep -q "^host    $DB_NAME    $DB_USER    $network    md5" /etc/postgresql/*/main/pg_hba.conf; then
+    if ! sudo grep -q "^host    $DB_NAME    $DB_USER    $network    md5" "$PG_HBA_CONF"; then
         print_message "Adding access rule for network: $network"
-        sudo bash -c "echo 'host    $DB_NAME    $DB_USER    $network    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+        sudo bash -c "echo 'host    $DB_NAME    $DB_USER    $network    md5' >> $PG_HBA_CONF"
     fi
 done
 
 # Always ensure localhost access
-if ! sudo grep -q "^host    $DB_NAME    $DB_USER    127.0.0.1/32    md5" /etc/postgresql/*/main/pg_hba.conf; then
-    # Add entry for localhost connections
-    sudo bash -c "echo 'host    $DB_NAME    $DB_USER    127.0.0.1/32    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+if ! sudo grep -q "^host    $DB_NAME    $DB_USER    127.0.0.1/32    md5" "$PG_HBA_CONF"; then
+    print_message "Adding localhost access rule"
+    sudo bash -c "echo 'host    $DB_NAME    $DB_USER    127.0.0.1/32    md5' >> $PG_HBA_CONF"
 fi
 
-if ! sudo grep -q "^local   $DB_NAME    $DB_USER    md5" /etc/postgresql/*/main/pg_hba.conf; then
-    # Add entry for local connections
-    sudo bash -c "echo 'local   $DB_NAME    $DB_USER    md5' >> /etc/postgresql/*/main/pg_hba.conf"
+if ! sudo grep -q "^local   $DB_NAME    $DB_USER    md5" "$PG_HBA_CONF"; then
+    print_message "Adding local socket access rule"
+    sudo bash -c "echo 'local   $DB_NAME    $DB_USER    md5' >> $PG_HBA_CONF"
 fi
 
 # Restart PostgreSQL to apply changes
 print_message "Restarting PostgreSQL service..."
 sudo systemctl restart postgresql
+
+# Wait for PostgreSQL to restart
+print_message "Waiting for PostgreSQL to restart..."
+sleep 5
+ensure_postgresql_running
 
 # Verify connection
 print_message "Verifying database connection..."
@@ -85,6 +116,8 @@ if PGPASSWORD="$DB_PASSWORD" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -c "S
     print_success "Database connection successful!"
 else
     print_error "Failed to connect to the database. Please check your PostgreSQL configuration."
+    print_message "You can check PostgreSQL logs with: sudo journalctl -u postgresql"
+    print_message "You can also try manually restarting PostgreSQL with: sudo systemctl restart postgresql"
     exit 1
 fi
 
@@ -107,5 +140,5 @@ module.exports = {
 };
 EOF
 
-print_message "Database setup completed successfully!"
+print_success "Database setup completed successfully!"
 print_message "You can now run the add_mock_players.sh script to populate the database with mock data." 

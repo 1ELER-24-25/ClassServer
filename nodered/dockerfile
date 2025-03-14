@@ -1,2 +1,2 @@
 FROM nodered/node-red:latest
-RUN npm install chess.js node-red-contrib-influxdb node-red-node-postgres
+RUN npm install chess.js node-red-contrib-influxdb node-red-contrib-postgres

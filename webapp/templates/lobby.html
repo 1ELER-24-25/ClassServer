@@ -1,0 +1,28 @@
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Online Players</h2>
+            <div id="playerList">
+                <!-- Populated via WebSocket -->
+            </div>
+        </div>
+        <div class="col-md-4">
+            <h2>Challenges</h2>
+            <div id="challengeList">
+                <!-- Incoming/outgoing challenges -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const ws = new WebSocket('ws://localhost:5000/ws');
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'playerList') {
+        updatePlayerList(data.players);
+    } else if (data.type === 'challenge') {
+        handleChallenge(data);
+    }
+};
+</script>

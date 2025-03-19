@@ -22,7 +22,10 @@ CREATE TABLE games (
     time_limit INT,  -- in seconds
     metadata JSONB,  -- for game-specific data like chess moves
     elo_change JSONB NOT NULL DEFAULT '{}'::jsonb,
-    deleted BOOLEAN DEFAULT FALSE
+    deleted BOOLEAN DEFAULT FALSE,
+    game_source VARCHAR(20) 
+        CHECK (game_source IN ('physical', 'online')) 
+        DEFAULT 'physical'
 );
 
 -- ELO ratings table - with constraints and index
@@ -54,3 +57,13 @@ CREATE TRIGGER trigger_update_elo_timestamp
     BEFORE UPDATE ON elo_ratings
     FOR EACH ROW
     EXECUTE FUNCTION update_elo_last_updated();
+
+-- Optional: Add table for challenges
+CREATE TABLE game_challenges (
+    id SERIAL PRIMARY KEY,
+    challenger_id INT REFERENCES users(id),
+    challenged_id INT REFERENCES users(id),
+    game_type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

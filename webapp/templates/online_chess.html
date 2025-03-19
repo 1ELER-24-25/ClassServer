@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div id="board" style="width: 600px"></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Game Info</h5>
+                    <p>Opponent: <span id="opponent">Waiting...</span></p>
+                    <p>Time: <span id="time">--:--</span></p>
+                    <div id="status" class="alert alert-info">Waiting for opponent...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add these in your head section -->
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const game = new Chess()
+const gameId = '{{ game_id }}' // Passed from Flask
+let board = null
+let ws = null
+
+function initializeGame() {
+    board = Chessboard('board', {
+        position: 'start',
+        draggable: true,
+        onDrop: onDrop
+    })
+
+    ws = new WebSocket(`ws://${window.location.host}/ws/game/${gameId}`)
+    ws.onmessage = handleMessage
+}
+
+function onDrop(source, target) {
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+    })
+
+    if (move === null) return 'snapback'
+
+    ws.send(JSON.stringify({
+        type: 'move',
+        gameId: gameId,
+        move: { from: source, to: target }
+    }))
+}
+
+function handleMessage(event) {
+    const data = JSON.parse(event.data)
+    switch(data.type) {
+        case 'gameState':
+            game.load(data.fen)
+            board.position(data.fen)
+            $('#opponent').text(data.opponent)
+            $('#status').text(data.status)
+            break
+        case 'gameOver':
+            $('#status').removeClass('alert-info').addClass('alert-success')
+            $('#status').text(data.result)
+            break
+    }
+}
+
+$(document).ready(initializeGame)
+</script>
+{% endblock %}
+{% endblock %}

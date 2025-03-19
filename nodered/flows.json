@@ -109,6 +109,7 @@
             "retentionPolicyV18Flux": "",
             "org": "classroom",
             "bucket": "games",
+            "token": "${INFLUXDB_ADMIN_TOKEN}",
             "x": 580,
             "y": 220,
             "wires": []

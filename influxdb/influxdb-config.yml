@@ -1,0 +1,3 @@
+flux-enabled: true
+reporting-disabled: true
+retention-autocreate: true

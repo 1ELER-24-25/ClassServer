@@ -1,113 +1,148 @@
 # ClassServer Installation Guide for Ubuntu LTS
 
-This guide will help you install ClassServer on Ubuntu LTS (20.04 or 22.04). Just follow these simple steps.
+This guide will help you install ClassServer on Ubuntu LTS (20.04 or 22.04).
 
-## Quick Install
+## Prerequisites
 
-Copy and paste these commands into your terminal:
-
+1. Check available ports:
 ```bash
-# Update system and install prerequisites
+# Verify required ports are free
+sudo lsof -i :5000    # Flask web interface
+sudo lsof -i :1880    # Node-RED
+sudo lsof -i :8086    # InfluxDB
+sudo lsof -i :8080    # Adminer
+sudo lsof -i :1883    # MQTT
+```
+
+2. Ensure Docker is installed and running:
+```bash
+# Install Docker and Docker Compose
 sudo apt update
 sudo apt install -y git docker.io docker-compose
 
 # Start and enable Docker
-sudo systemctl enable --now docker
+sudo systemctl status docker    # Check status
+sudo systemctl start docker    # Start if needed
+sudo systemctl enable docker   # Enable on boot
 
-# Add your user to Docker group (needed to run Docker without sudo)
+# Add your user to Docker group
 sudo usermod -aG docker $USER
+```
 
-# Clone the repository
+**Important**: Log out and log back in for group changes to take effect.
+
+## Installation
+
+1. Clone and prepare the repository:
+```bash
 git clone https://github.com/1ELER-24-25/ClassServer.git
 cd ClassServer
+```
 
-# Set up environment file
+2. Configure environment:
+```bash
+# Create and edit environment file
 cp .env.example .env
-
-## Environment Configuration
-# Edit the .env file to set required passwords and configuration:
 nano .env
 
-Required settings:
-- `INFLUXDB_ADMIN_PASSWORD`: Set a secure password for InfluxDB
-- `POSTGRES_PASSWORD`: Set a secure password for PostgreSQL
-- `FLASK_SECRET_KEY`: Set a random string for Flask security
+# Required settings in .env:
+INFLUXDB_ADMIN_PASSWORD=your_secure_password
+POSTGRES_PASSWORD=your_secure_password
+FLASK_SECRET_KEY=your_random_string
+```
 
-# Set up permissions and start services
+3. Set up permissions and start services:
+```bash
 chmod +x setup-permissions.sh
 ./setup-permissions.sh
 docker-compose up -d
 ```
 
-**Important**: After running these commands, log out and log back in for group changes to take effect.
-
 ## Verify Installation
 
-Open these URLs in your browser:
+1. Check container status:
+```bash
+# List running containers
+docker-compose ps
+
+# Check container logs
+docker-compose logs         # All containers
+docker-compose logs webapp  # Specific container
+```
+
+2. Open these URLs in your browser:
 - Web Interface: http://localhost:5000
 - Node-RED: http://localhost:1880
 - InfluxDB: http://localhost:8086
 - Adminer: http://localhost:8080
 
-## Troubleshooting
+## Common Docker Commands
 
-### Common Issues
-
-1. **"Permission denied" errors**:
-   ```bash
-   # Run the permissions script again
-   ./setup-permissions.sh
-   ```
-
-2. **Port already in use**:
-   ```bash
-   # Check which process is using the port (example for port 5000)
-   sudo lsof -i :5000
-   ```
-
-3. **Docker service not running**:
-   ```bash
-   sudo systemctl start docker
-   ```
-
-4. **View container logs**:
-   ```bash
-   # View logs for all containers
-   docker-compose logs
-
-   # View logs for specific service (e.g., webapp)
-   docker-compose logs webapp
-   ```
-
-### Need Help?
-
-If you encounter any issues:
-1. Check the container logs
-2. Ensure all ports (5000, 1880, 8086, 8080) are available
-3. Verify Docker is running
-4. Open an issue on our GitHub repository
-
-## Environment Configuration
-
-After installation, edit the `.env` file to set your passwords and configuration:
 ```bash
-nano .env
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose down
+
+# Restart specific service
+docker-compose restart webapp
+
+# View real-time logs
+docker-compose logs -f
+
+# Check container resource usage
+docker stats
+
+# Rebuild containers after changes
+docker-compose up -d --build
 ```
 
-Required settings:
-- `INFLUXDB_ADMIN_PASSWORD`: Set a secure password for InfluxDB
-- `POSTGRES_PASSWORD`: Set a secure password for PostgreSQL
-- `FLASK_SECRET_KEY`: Set a random string for Flask security
+## Troubleshooting
 
-After changing environment variables, restart the services:
+1. **"Permission denied" errors**:
 ```bash
+./setup-permissions.sh
+```
+
+2. **Port conflicts**:
+```bash
+# Find process using a port
+sudo lsof -i :5000
+# Kill process if needed
+sudo kill <PID>
+```
+
+3. **Container issues**:
+```bash
+# Check container status
+docker-compose ps
+# View detailed container info
+docker inspect <container_name>
+```
+
+## Maintenance
+
+### Update Services
+```bash
+# Pull latest images
+docker-compose pull
+
+# Rebuild and restart
+docker-compose up -d --build
+```
+
+### Backup Data
+```bash
+# Stop services before backup
 docker-compose down
-docker-compose up -d
+
+# Backup data directories
+tar -czf classserver-backup.tar.gz influxdb-data postgres-data nodered-data mosquitto
 ```
 
 ## Uninstall
 
-To remove ClassServer:
 ```bash
 # Stop and remove containers
 docker-compose down
@@ -115,5 +150,40 @@ docker-compose down
 # Remove data directories
 sudo rm -rf influxdb-data postgres-data nodered-data mosquitto
 ```
+
+## InfluxDB Setup
+
+The InfluxDB instance is automatically configured with:
+- Organization: classroom
+- Bucket: games
+- Retention: 7 days
+- Measurement: chess_moves
+
+To verify the setup:
+1. Visit http://localhost:8086
+2. Login with credentials from .env
+3. Check Data Explorer to see chess_moves measurement
+
+Common InfluxDB CLI commands:
+```bash
+# Check bucket status
+docker-compose exec influxdb influx bucket list
+
+# View retention policies
+docker-compose exec influxdb influx bucket list --org classroom
+
+# Manual data exploration
+docker-compose exec influxdb influx query \
+    --org classroom \
+    'from(bucket:"games") |> range(start: -1h)'
+```
+
+## Need Help?
+
+If you encounter issues:
+1. Check container logs using commands above
+2. Verify all ports are available
+3. Ensure Docker is running properly
+4. Open an issue on our GitHub repository with logs and error details
 
 

@@ -17,6 +17,29 @@ def get_db_connection():
         password=os.environ.get('POSTGRES_PASSWORD')
     )
 
+# API routes for dynamic content
+@app.route('/api/active-games')
+def get_active_games():
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM games WHERE status = 'active'")
+            games = cur.fetchall()
+    return jsonify(games)
+
+@app.route('/api/leaderboard')
+def get_leaderboard():
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.username, er.rating, er.game_type 
+                FROM elo_ratings er 
+                JOIN users u ON er.user_id = u.id 
+                ORDER BY er.rating DESC
+            """)
+            rankings = cur.fetchall()
+    return jsonify(rankings)
+
+# Page routes
 @app.route('/')
 def home():
     return render_template('home.html')

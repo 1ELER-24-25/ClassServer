@@ -16,6 +16,7 @@ services:
       - "8086:8086"
     volumes:
       - ./influxdb-data:/var/lib/influxdb2
+      - ./influxdb/influxdb-config.yml:/etc/influxdb2/config.yml
     user: "1000:1000"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
@@ -23,6 +24,8 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
       - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_RETENTION=7d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
     restart: unless-stopped
 
   postgres:

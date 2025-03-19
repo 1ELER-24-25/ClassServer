@@ -1,11 +1,44 @@
-from flask import Flask
+from flask import Flask, render_template, jsonify
+from flask_login import LoginManager, login_required
+import psycopg2
+import os
 
 app = Flask(__name__)
-app.secret_key = "placeholder"  # Overridden by .env
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+# Database connection
+def get_db_connection():
+    return psycopg2.connect(
+        host="postgres",
+        database=os.environ.get('POSTGRES_DB'),
+        user=os.environ.get('POSTGRES_USER'),
+        password=os.environ.get('POSTGRES_PASSWORD')
+    )
 
 @app.route('/')
 def home():
-    return "Welcome to ClassServer! (Under Construction)"
+    return render_template('home.html')
+
+@app.route('/server-info')
+def server_info():
+    info = {
+        'mqtt': {'host': 'localhost', 'port': 1883},
+        'nodered': {'url': 'http://localhost:1880'},
+        'influxdb': {'url': 'http://localhost:8086'},
+        'adminer': {'url': 'http://localhost:8080'}
+    }
+    return render_template('server_info.html', info=info)
+
+@app.route('/mqtt-docs')
+def mqtt_docs():
+    return render_template('mqtt_docs.html')
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html')
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

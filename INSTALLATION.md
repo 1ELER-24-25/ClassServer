@@ -1,119 +1,119 @@
-# Installation Guide :gear:
+# ClassServer Installation Guide for Ubuntu LTS
 
-This guide walks you through installing **ClassServer**, the IoT Gaming System for classrooms, on Linux or Windows. Commands are provided in easy-to-copy format for your terminal of choice. Let’s get started! :rocket:
+This guide will help you install ClassServer on Ubuntu LTS (20.04 or 22.04). Just follow these simple steps.
 
----
+## Quick Install
 
-## :clipboard: Prerequisites
+Copy and paste these commands into your terminal:
 
-Before you begin, ensure you have these tools installed:
-
-- **Git**: For cloning the repository.
-  - :penguin: **Linux**: Install via package manager (e.g., `sudo apt install git`).
-  - :window: **Windows**: Download [Git for Windows](https://git-scm.com/download/win) (includes Git Bash).
-- **Docker & Docker Compose**: For running the system.
-  - :penguin: **Linux**: Install Docker and Docker Compose (see below).
-  - :window: **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), enable WSL 2, and start it.
-
----
-
-## :wrench: Step-by-Step Installation
-
-### 1. Install Prerequisites
-
-#### :penguin: Linux (Ubuntu/Debian)
 ```bash
+# Update system and install prerequisites
 sudo apt update
 sudo apt install -y git docker.io docker-compose
+
+# Start and enable Docker
 sudo systemctl enable --now docker
-```
 
-#### :window: Windows
-1. Install Git for Windows from [git-scm.com](https://git-scm.com/download/win).
-2. Install Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop/).
-3. Enable WSL 2 backend during setup (recommended).
-4. Start Docker Desktop from the system tray.
+# Add your user to Docker group (needed to run Docker without sudo)
+sudo usermod -aG docker $USER
 
-:information_source: **Windows Note**: Run commands in Git Bash, PowerShell, or CMD. Ensure Docker Desktop is running before proceeding.
-
-### 2. Clone the Repository
-```bash
+# Clone the repository
 git clone https://github.com/1ELER-24-25/ClassServer.git
 cd ClassServer
-```
 
-#### :window: Windows PowerShell Alternative:
-```powershell
-git clone https://github.com/1ELER-24-25/ClassServer.git
-cd ClassServer
-```
-
-### 3. Set Up Environment Variables
-
-Copy the example `.env` file and edit it with your credentials:
-
-#### Bash:
-```bash
+# Set up environment file
 cp .env.example .env
-```
 
-#### Edit `.env`:
-- :penguin: **Linux**: Use `nano .env` or your preferred editor.
-- :window: **Windows**: Use `notepad .env` (Git Bash/PowerShell) or any text editor.
+## Environment Configuration
+# Edit the .env file to set required passwords and configuration:
+nano .env
 
-#### :window: Windows PowerShell Alternative:
-```powershell
-copy .env.example .env
-notepad .env
-```
+Required settings:
+- `INFLUXDB_ADMIN_PASSWORD`: Set a secure password for InfluxDB
+- `POSTGRES_PASSWORD`: Set a secure password for PostgreSQL
+- `FLASK_SECRET_KEY`: Set a random string for Flask security
 
-### 4. Start the System
-
-#### Bash:
-```bash
+# Set up permissions and start services
+chmod +x setup-permissions.sh
+./setup-permissions.sh
 docker-compose up -d
 ```
 
-:window: **Windows Note**: Ensure Docker Desktop is running. Run this in Git Bash, PowerShell, or CMD. Allow firewall access if prompted (ports 5000, 1880, etc.).
+**Important**: After running these commands, log out and log back in for group changes to take effect.
 
-### 5. Verify Installation
+## Verify Installation
 
-Check these URLs in your browser:
+Open these URLs in your browser:
+- Web Interface: http://localhost:5000
+- Node-RED: http://localhost:1880
+- InfluxDB: http://localhost:8086
+- Adminer: http://localhost:8080
 
-- :earth_americas: **Web App**: [http://localhost:5000](http://localhost:5000)
-- :gear: **Node-RED**: [http://localhost:1880](http://localhost:1880)
-- :zap: **InfluxDB**: [http://localhost:8086](http://localhost:8086)
-- :hammer: **Adminer**: [http://localhost:8080](http://localhost:8080)
+## Troubleshooting
 
-If they load, you’re good to go! :tada:
+### Common Issues
 
----
+1. **"Permission denied" errors**:
+   ```bash
+   # Run the permissions script again
+   ./setup-permissions.sh
+   ```
 
-## :warning: Troubleshooting
+2. **Port already in use**:
+   ```bash
+   # Check which process is using the port (example for port 5000)
+   sudo lsof -i :5000
+   ```
 
-### Docker Not Running:
-- :penguin: **Linux**: `sudo systemctl start docker`
-- :window: **Windows**: Start Docker Desktop from the system tray.
+3. **Docker service not running**:
+   ```bash
+   sudo systemctl start docker
+   ```
 
-### Port Conflicts:
-Check if ports (e.g., 5000) are in use:
+4. **View container logs**:
+   ```bash
+   # View logs for all containers
+   docker-compose logs
 
-#### Bash:
+   # View logs for specific service (e.g., webapp)
+   docker-compose logs webapp
+   ```
+
+### Need Help?
+
+If you encounter any issues:
+1. Check the container logs
+2. Ensure all ports (5000, 1880, 8086, 8080) are available
+3. Verify Docker is running
+4. Open an issue on our GitHub repository
+
+## Environment Configuration
+
+After installation, edit the `.env` file to set your passwords and configuration:
 ```bash
-netstat -tuln | grep 5000  # Linux
-netstat -aon | findstr 5000  # Windows PowerShell
+nano .env
 ```
 
-Stop conflicting processes or edit `docker-compose.yml`.
+Required settings:
+- `INFLUXDB_ADMIN_PASSWORD`: Set a secure password for InfluxDB
+- `POSTGRES_PASSWORD`: Set a secure password for PostgreSQL
+- `FLASK_SECRET_KEY`: Set a random string for Flask security
 
-### Permission Issues:
-- :penguin: **Linux**: Add your user to the Docker group: `sudo usermod -aG docker $USER` and reboot.
-- :window: **Windows**: Run terminal as Administrator.
+After changing environment variables, restart the services:
+```bash
+docker-compose down
+docker-compose up -d
+```
 
----
+## Uninstall
 
-## :information_source: Additional Notes
+To remove ClassServer:
+```bash
+# Stop and remove containers
+docker-compose down
 
-- **ESP32 Setup**: Flash your boards with firmware (details in `PROJECT_DESCRIPTION.md`).
-- **Full Details**: See `PROJECT_DESCRIPTION.md` for the complete project setup.
+# Remove data directories
+sudo rm -rf influxdb-data postgres-data nodered-data mosquitto
+```
+
 

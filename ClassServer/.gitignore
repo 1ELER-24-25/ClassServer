@@ -5,6 +5,8 @@
 influxdb-data/
 postgres-data/
 nodered-data/
+mosquitto/data/
+mosquitto/log/
 
 # Python
 __pycache__/

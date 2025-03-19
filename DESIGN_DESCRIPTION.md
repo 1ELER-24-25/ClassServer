@@ -1,16 +1,17 @@
 # Design Description :blueprint: :school:
 
-This **Design Description** outlines the architecture and solutions for **ClassServer**, an IoT Gaming System for the 1ELER-24-25 classroom. Hosted at `https://github.com/1ELER-24-25/ClassServer`, it’s designed to track physical games (starting with chess) using ESP32 boards, offering real-time validation, ELO rankings, and a web interface. This document details the tech stack and agreed-upon solutions to guide development.
+This **Design Description** outlines the architecture and solutions for **ClassServer**, an IoT Gaming System for the 1ELER-24-25 classroom. Hosted at `https://github.com/1ELER-24-25/ClassServer`, it’s designed to track physical games (starting with chess and Foosball) using ESP32 boards, offering real-time validation, ELO rankings, and a web interface. This document details the tech stack and agreed-upon solutions to guide development.
 
 ---
 
 ## :dart: Project Goals
 
-- :chess_pawn: Enable real-time tracking and validation of chess games in a classroom setting.
+- :chess_pawn: Enable real-time tracking and validation of chess games.
+- :radio: Enable real-time tracking and validation of foosball games.
 - :trophy: Provide ELO-based rankings and user profiles for competitive fun.
 - :earth_americas: Deliver an intuitive web interface for players and admins.
 - :package: Ensure easy deployment via Docker for classroom use.
-- :arrows_counterclockwise: Scale to support multiple boards and future games (e.g., foosball).
+- :arrows_counterclockwise: Scale to support multiple boards and future games.
 
 ---
 

@@ -1,12 +1,15 @@
-from flask import Flask, render_template, jsonify
-from flask_login import LoginManager, login_required
+from flask import Flask, render_template, jsonify, session, request, redirect, url_for, flash
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import psycopg2
 import os
+import uuid
+from models import User
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY')
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 # Database connection
 def get_db_connection():
@@ -62,6 +65,54 @@ def mqtt_docs():
 @login_required
 def profile():
     return render_template('profile.html')
+
+@login_manager.user_loader
+def load_user(user_id):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, username, rfid_uid, password_hash FROM users WHERE id = %s", (user_id,))
+            user_data = cur.fetchone()
+            if user_data:
+                return User(
+                    id=user_data[0],
+                    username=user_data[1],
+                    rfid=user_data[2],
+                    password_hash=user_data[3]
+                )
+    return None
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        identifier = request.form['identifier']
+        password = request.form['password']
+        
+        with get_db_connection() as conn:
+            user = User.get_by_identifier(identifier, conn)
+            
+            if user and user.check_password(password):
+                login_user(user)
+                next_page = request.args.get('next')
+                return redirect(next_page or url_for('home'))
+            
+            return render_template('login.html', error="Invalid credentials")
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('home'))
+
+# Protected routes require @login_required
+@app.route('/virtual-board')
+@login_required
+def virtual_board():
+    board_id = f"WEB-{uuid.uuid4().hex[:8]}"
+    return render_template('online_chess.html', 
+                         board_id=board_id,
+                         user_rfid=current_user.rfid)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

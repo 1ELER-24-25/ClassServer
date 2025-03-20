@@ -2,7 +2,8 @@ services:
   mosquitto:
     image: eclipse-mosquitto:latest
     ports:
-      - "1883:1883"
+      - "1883:1883"  # MQTT
+      - "9001:9001"  # WebSocket
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/data:/mosquitto/data
@@ -48,7 +49,11 @@ services:
       - "1880:1880"
     volumes:
       - ./nodered-data:/data
+      # Add source directory for live development
+      - ./nodered:/data/nodes
     user: "1000:1000"
+    environment:
+      - NODE_ENV=development
     depends_on:
       - mosquitto
       - influxdb
@@ -59,7 +64,12 @@ services:
     build: ./webapp
     ports:
       - "5000:5000"
+    volumes:
+      # Add source directory for live development
+      - ./webapp:/app
     environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
     depends_on:
       - postgres

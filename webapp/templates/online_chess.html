@@ -9,40 +9,123 @@
         <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Game Info</h5>
-                    <p>Opponent: <span id="opponent">Waiting...</span></p>
+                    <h5 class="card-title">Virtual Board Controls</h5>
+                    <p>Board ID: <strong>{{ board_id }}</strong></p>
+                    <p>Game ID: <span id="gameId">Not started</span></p>
                     <p>Time: <span id="time">--:--</span></p>
-                    <div id="status" class="alert alert-info">Waiting for opponent...</div>
+                    
+                    <!-- Simulate physical board buttons -->
+                    <div class="btn-group mb-3">
+                        <button id="btnStart" class="btn btn-success">Start Game</button>
+                        <button id="btnForfeit" class="btn btn-danger" disabled>Forfeit</button>
+                        <button id="btnDraw" class="btn btn-warning" disabled>Draw</button>
+                        <button id="btnCancel" class="btn btn-secondary" disabled>Cancel</button>
+                    </div>
+                    
+                    <!-- Simulate mode switch -->
+                    <div class="form-group">
+                        <label>Game Mode:</label>
+                        <select id="gameMode" class="form-control">
+                            <option value="casual">Casual</option>
+                            <option value="blitz">Blitz (5 min)</option>
+                            <option value="classical">Classical (30 min)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="status" class="alert alert-info mt-3">Ready to start</div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Add these in your head section -->
 {% block extra_head %}
+<!-- Existing chess libraries -->
 <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<!-- Add MQTT client library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const game = new Chess()
-const gameId = '{{ game_id }}' // Passed from Flask
-let board = null
-let ws = null
+const BOARD_ID = '{{ board_id }}';
+const USER_RFID = '{{ user_rfid }}';  // From Flask session
+let game = new Chess();
+let board = null;
+let gameId = null;
+let mqtt = null;
 
-function initializeGame() {
+// MQTT Setup
+function setupMQTT() {
+    mqtt = new Paho.MQTT.Client(
+        window.location.hostname,
+        9001,  // WebSocket port for MQTT
+        "web-board-" + Math.random().toString(16).substr(2, 8)
+    );
+    
+    mqtt.onMessageArrived = onMQTTMessage;
+    mqtt.connect({
+        onSuccess: () => {
+            mqtt.subscribe(`games/chess/response/${BOARD_ID}/+`);
+            console.log("MQTT Connected");
+        }
+    });
+}
+
+// Board Setup
+function initializeBoard() {
     board = Chessboard('board', {
         position: 'start',
         draggable: true,
         onDrop: onDrop
-    })
+    });
+    
+    setupButtons();
+    setupMQTT();
+}
 
-    ws = new WebSocket(`ws://${window.location.host}/ws/game/${gameId}`)
-    ws.onmessage = handleMessage
+// Simulate physical board buttons
+function setupButtons() {
+    $('#btnStart').click(() => {
+        const mode = $('#gameMode').val();
+        const timeLimit = mode === 'blitz' ? 300 : (mode === 'classical' ? 1800 : 0);
+        
+        // Simulate game start MQTT message
+        publishMQTT('games/chess/start', {
+            board_id: BOARD_ID,
+            rfid_white: USER_RFID,
+            rfid_black: 'OPPONENT_RFID',  // In real board, this would be second RFID scan
+            mode: mode,
+            time_limit: timeLimit
+        });
+    });
+    
+    $('#btnForfeit').click(() => {
+        publishMQTT('games/chess/forfeit', {
+            board_id: BOARD_ID,
+            game_id: gameId,
+            rfid: USER_RFID
+        });
+    });
+    
+    $('#btnDraw').click(() => {
+        publishMQTT('games/chess/remis', {
+            board_id: BOARD_ID,
+            game_id: gameId,
+            rfid: USER_RFID
+        });
+    });
+    
+    $('#btnCancel').click(() => {
+        publishMQTT('games/chess/cancel', {
+            board_id: BOARD_ID,
+            game_id: gameId,
+            rfid: USER_RFID
+        });
+    });
 }
 
 function onDrop(source, target) {
@@ -50,34 +133,63 @@ function onDrop(source, target) {
         from: source,
         to: target,
         promotion: 'q'
-    })
+    });
 
-    if (move === null) return 'snapback'
+    if (move === null) return 'snapback';
 
-    ws.send(JSON.stringify({
-        type: 'move',
-        gameId: gameId,
-        move: { from: source, to: target }
-    }))
+    // Send move in MQTT format
+    publishMQTT('games/chess/move', {
+        board_id: BOARD_ID,
+        game_id: gameId,
+        rfid: USER_RFID,
+        move: source + target
+    });
 }
 
-function handleMessage(event) {
-    const data = JSON.parse(event.data)
-    switch(data.type) {
-        case 'gameState':
-            game.load(data.fen)
-            board.position(data.fen)
-            $('#opponent').text(data.opponent)
-            $('#status').text(data.status)
-            break
-        case 'gameOver':
-            $('#status').removeClass('alert-info').addClass('alert-success')
-            $('#status').text(data.result)
-            break
+function publishMQTT(topic, payload) {
+    const message = new Paho.MQTT.Message(JSON.stringify(payload));
+    message.destinationName = topic;
+    mqtt.send(message);
+}
+
+function onMQTTMessage(message) {
+    const response = JSON.parse(message.payloadString);
+    const topic = message.destinationName;
+    
+    if (topic.includes('/response/')) {
+        switch(response.status) {
+            case 'game_started':
+                gameId = response.game_id;
+                $('#gameId').text(gameId);
+                enableGameButtons(true);
+                $('#status').text('Game started');
+                break;
+            case 'legal':
+                board.position(game.fen());
+                break;
+            case 'illegal':
+                game.undo();
+                board.position(game.fen());
+                $('#status').text('Illegal move');
+                break;
+            case 'checkmate':
+                $('#status').text(`Game Over - ${response.winner === USER_RFID ? 'You won!' : 'You lost!'}`);
+                enableGameButtons(false);
+                break;
+        }
     }
 }
 
-$(document).ready(initializeGame)
+function enableGameButtons(enabled) {
+    $('#btnStart').prop('disabled', enabled);
+    $('#btnForfeit').prop('disabled', !enabled);
+    $('#btnDraw').prop('disabled', !enabled);
+    $('#btnCancel').prop('disabled', !enabled);
+    $('#gameMode').prop('disabled', enabled);
+}
+
+$(document).ready(initializeBoard);
 </script>
 {% endblock %}
 {% endblock %}
+

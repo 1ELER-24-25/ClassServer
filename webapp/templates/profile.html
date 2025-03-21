@@ -13,6 +13,15 @@
                         Username: <span id="username">Loading...</span><br>
                         RFID: <span id="rfid">Loading...</span>
                     </p>
+                    <!-- Add action buttons -->
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('virtual_board') }}" class="btn btn-success">
+                            Play Chess
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-danger">
+                            Log Out
+                        </a>
+                    </div>
                 </div>
             </div>
 

@@ -4,7 +4,7 @@ FROM nodered/node-red:latest
 RUN npm install \
     chess.js@^0.13.4 \
     node-red-contrib-influxdb@^0.6.1 \
-    node-red-contrib-postgres@^0.9.2
+    node-red-contrib-postgres@^0.6.1
 
 # Copy flows
 COPY flows.json /data/flows.json

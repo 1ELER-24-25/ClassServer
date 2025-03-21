@@ -20,7 +20,7 @@ body {
     font-family: 'VT323', monospace;
     font-size: 1.2rem;
     background-color: var(--retro-black);
-    color: var(--retro-cyan);
+    color: var(--retro-cyan);  /* Default text color */
     line-height: 1.6;
 }
 
@@ -74,6 +74,7 @@ h1, h2, h3, h4, h5, h6 {
     border: 2px solid var(--retro-purple);
     border-radius: 8px;
     transition: all 0.3s ease;
+    color: var(--retro-cyan);  /* Add explicit text color for cards */
 }
 
 .card:hover {
@@ -84,6 +85,7 @@ h1, h2, h3, h4, h5, h6 {
 .card-header {
     background: var(--retro-gradient);
     border-bottom: 2px solid var(--retro-cyan);
+    color: var(--retro-yellow);  /* Make header text visible on gradient */
 }
 
 /* Buttons */
@@ -126,13 +128,10 @@ h1, h2, h3, h4, h5, h6 {
 /* Tables */
 .table {
     color: var(--retro-cyan);
-    border-color: var(--retro-purple);
 }
 
-.table thead th {
-    background: var(--retro-gradient);
-    color: var(--retro-yellow);
-    border-color: var(--retro-cyan);
+.table td, .table th {
+    color: var(--retro-cyan);  /* Explicit color for table cells */
 }
 
 /* Mobile Responsiveness */
@@ -196,4 +195,143 @@ h1, h2, h3, h4, h5, h6 {
     padding: 1rem 0;
     border-top: 2px solid var(--retro-cyan);
     font-family: 'VT323', monospace;
+}
+
+/* Links */
+a {
+    color: var(--retro-cyan);  /* Default link color */
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--retro-yellow);
+    text-shadow: var(--neon-shadow);
+}
+
+/* Form Labels and Text */
+label, p, span, div {
+    color: var(--retro-cyan);  /* Ensure all text elements are visible */
+}
+
+/* Form inputs placeholder text */
+::placeholder {
+    color: var(--retro-gray);
+}
+
+/* Alert messages */
+.alert {
+    color: var(--retro-yellow);
+    background: var(--retro-black);
+    border-color: var(--retro-purple);
+}
+
+/* At the top, after the other Google Fonts import */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+/* Add these new styles */
+.code-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid var(--retro-purple);
+    border-radius: 4px;
+    padding: 1rem;
+    color: var(--retro-cyan);
+}
+
+pre, code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    background: rgba(10, 10, 10, 0.9);
+    border-radius: 4px;
+    padding: 0.2em 0.4em;
+    color: var(--retro-cyan);
+}
+
+pre {
+    padding: 1rem;
+    border: 1px solid var(--retro-purple);
+    overflow-x: auto;
+}
+
+/* Server info specific styling */
+.server-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+}
+
+.server-info .info-label {
+    color: var(--retro-yellow);
+    font-weight: bold;
+}
+
+.server-info .info-value {
+    color: var(--retro-cyan);
+    padding-left: 1rem;
+}
+
+/* MQTT docs specific styling */
+.mqtt-docs code {
+    color: var(--retro-green);
+}
+
+.mqtt-docs .topic-example {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--retro-orange);
+    background: rgba(10, 10, 10, 0.9);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+}
+
+/* Table modifications for code display */
+.code-table {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    background: transparent;  /* Remove default background */
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.code-table th {
+    color: var(--retro-yellow);
+    border-bottom: 2px solid var(--retro-purple);
+    padding: 0.75rem;
+    background-color: rgba(10, 10, 10, 0.9);  /* Dark background for headers */
+}
+
+.code-table td {
+    color: var(--retro-cyan);
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--retro-purple);
+    background-color: rgba(10, 10, 10, 0.9);  /* Dark background for cells */
+}
+
+/* Override Bootstrap's default table styles */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-bg: rgba(107, 47, 191, 0.1);  /* Very subtle purple stripe */
+    --bs-table-striped-color: var(--retro-cyan);
+    --bs-table-hover-bg: rgba(0, 255, 255, 0.1);  /* Subtle cyan hover */
+    --bs-table-hover-color: var(--retro-yellow);
+}
+
+/* Specific styles for the MQTT docs tables */
+.mqtt-docs .code-table code {
+    background: rgba(57, 255, 20, 0.1);  /* Subtle green background for code */
+    border: 1px solid var(--retro-green);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+}
+
+.mqtt-docs .code-table td,
+.mqtt-docs .code-table th {
+    vertical-align: top;
+}
+
+/* Add some spacing between multiple code blocks in a cell */
+.mqtt-docs .code-table td code {
+    display: inline-block;
+    margin: 2px 0;
 }

@@ -3,6 +3,7 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import psycopg2
 import os
 import uuid
+import socket
 from models import User
 
 app = Flask(__name__)
@@ -13,12 +14,27 @@ login_manager.login_view = 'login'
 
 # Database connection
 def get_db_connection():
-    return psycopg2.connect(
-        host="postgres",
-        database=os.environ.get('POSTGRES_DB'),
-        user=os.environ.get('POSTGRES_USER'),
-        password=os.environ.get('POSTGRES_PASSWORD')
-    )
+    try:
+        db_params = {
+            'host': "postgres",
+            'database': os.environ.get('POSTGRES_DB'),
+            'user': os.environ.get('POSTGRES_USER'),
+            'password': os.environ.get('POSTGRES_PASSWORD')
+        }
+        
+        # Debug print
+        print("Database connection parameters:")
+        for key, value in db_params.items():
+            print(f"{key}: {'[SET]' if value else '[NOT SET]'}")
+            
+        return psycopg2.connect(**db_params)
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        print(f"Environment variables:")
+        print(f"POSTGRES_DB: {os.environ.get('POSTGRES_DB')}")
+        print(f"POSTGRES_USER: {os.environ.get('POSTGRES_USER')}")
+        print(f"POSTGRES_PASSWORD length: {len(os.environ.get('POSTGRES_PASSWORD', '')) if os.environ.get('POSTGRES_PASSWORD') else 'NOT SET'}")
+        raise
 
 # API routes for dynamic content
 @app.route('/api/active-games')
@@ -49,11 +65,13 @@ def home():
 
 @app.route('/server-info')
 def server_info():
+    ip_address = os.environ.get('SERVER_IP', '192.168.1.100')
+    
     info = {
-        'mqtt': {'host': 'localhost', 'port': 1883},
-        'nodered': {'url': 'http://localhost:1880'},
-        'influxdb': {'url': 'http://localhost:8086'},
-        'adminer': {'url': 'http://localhost:8080'}
+        'mqtt': {'host': ip_address, 'port': 1883},
+        'nodered': {'url': f'http://{ip_address}:1880'},
+        'influxdb': {'url': f'http://{ip_address}:8086'},
+        'adminer': {'url': f'http://{ip_address}:8080'}
     }
     return render_template('server_info.html', info=info)
 
@@ -81,6 +99,33 @@ def load_user(user_id):
                 )
     return None
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        
+        if password != confirm_password:
+            return render_template('register.html', error="Passwords do not match")
+        
+        with get_db_connection() as conn:
+            # Check if username exists
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM users WHERE username = %s", (username,))
+                if cur.fetchone():
+                    return render_template('register.html', error="Username already exists")
+            
+            # Create new user
+            try:
+                user = User.create_web_user(username, password, conn)
+                login_user(user)
+                return redirect(url_for('home'))
+            except Exception as e:
+                return render_template('register.html', error="Registration failed")
+    
+    return render_template('register.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -90,6 +135,14 @@ def login():
         with get_db_connection() as conn:
             user = User.get_by_identifier(identifier, conn)
             
+            # If RFID user doesn't exist, create new user
+            if not user and identifier.startswith('RFID-'):
+                user = User.create_rfid_user(identifier, conn)
+                login_user(user)
+                flash(f'New account created! Your username is: {user.username} and password is: 1234')
+                return redirect(url_for('home'))
+            
+            # Normal login check
             if user and user.check_password(password):
                 login_user(user)
                 next_page = request.args.get('next')

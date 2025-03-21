@@ -1,90 +1,88 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MQTT Documentation - ClassServer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">ClassServer</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/server-info">Server Info</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/mqtt-docs">MQTT Docs</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/profile">Profile</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <div class="container mt-4">
-        <h1>MQTT Documentation</h1>
+{% block content %}
+<div class="mqtt-docs">
+    <h2>MQTT Documentation</h2>
+    
+    <div class="code-display">
+        <h3>Connection Details</h3>
+        <p>MQTT Broker: <span class="topic-example">192.168.1.100:1883</span></p>
+        <p>QoS Level: <span class="topic-example">1</span> (at least once delivery)</p>
         
-        <div class="card mt-4">
-            <div class="card-body">
-                <h5 class="card-title">Topics Overview</h5>
-                <h6 class="mt-3">Outbound (ESP32 → Server)</h6>
-                <ul>
-                    <li><code>games/chess/start</code> - Start a new game</li>
-                    <li><code>games/chess/move</code> - Make a move</li>
-                    <li><code>games/chess/forfeit</code> - Forfeit game</li>
-                    <li><code>games/chess/remis</code> - Request/accept draw</li>
-                    <li><code>games/chess/timeout</code> - Time ran out</li>
-                    <li><code>games/chess/cancel</code> - Cancel game</li>
-                </ul>
+        <h3>Topic Structure</h3>
+        <p>Base topic: <span class="topic-example">chess/board/{board_id}</span></p>
+        
+        <h4>Outbound Messages (ESP32 → Server)</h4>
+        <table class="code-table table">
+            <thead>
+                <tr>
+                    <th>Topic</th>
+                    <th>Description</th>
+                    <th>Payload Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>games/chess/start</code></td>
+                    <td>Start a new game</td>
+                    <td><code>{"board_id": "Board-001", "rfid_white": "abc123", "rfid_black": "xyz789", "mode": "blitz", "time_limit": 300}</code></td>
+                </tr>
+                <tr>
+                    <td><code>games/chess/move</code></td>
+                    <td>Make a move</td>
+                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123", "move": "e2e4"}</code></td>
+                </tr>
+                <tr>
+                    <td><code>games/chess/forfeit</code></td>
+                    <td>Forfeit the game</td>
+                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
+                </tr>
+                <tr>
+                    <td><code>games/chess/remis</code></td>
+                    <td>Request/accept draw (needs two messages)</td>
+                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
+                </tr>
+                <tr>
+                    <td><code>games/chess/timeout</code></td>
+                    <td>Time ran out</td>
+                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
+                </tr>
+                <tr>
+                    <td><code>games/chess/cancel</code></td>
+                    <td>Cancel the game</td>
+                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
+                </tr>
+            </tbody>
+        </table>
 
-                <h6 class="mt-3">Inbound (Server → ESP32)</h6>
-                <ul>
-                    <li><code>games/chess/response/&lt;board_id&gt;/&lt;game_id&gt;</code> - Server responses</li>
-                </ul>
-            </div>
-        </div>
+        <h4>Inbound Messages (Server → ESP32)</h4>
+        <table class="code-table table">
+            <thead>
+                <tr>
+                    <th>Topic Pattern</th>
+                    <th>Description</th>
+                    <th>Payload Examples</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>games/chess/response/{board_id}/{game_id}</code></td>
+                    <td>Server response to moves/actions</td>
+                    <td>
+                        <code>{"status": "legal"}</code><br>
+                        <code>{"status": "checkmate", "winner": "abc123"}</code>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
 
-        <div class="card mt-3">
-            <div class="card-body">
-                <h5 class="card-title">Message Formats</h5>
-                <h6 class="mt-3">Start Game</h6>
-                <pre><code>{
-    "board_id": "Board-001",
-    "rfid_white": "abc123",
-    "rfid_black": "xyz789",
-    "mode": "blitz",
-    "time_limit": 300
-}</code></pre>
-
-                <h6 class="mt-3">Make Move</h6>
-                <pre><code>{
-    "board_id": "Board-001",
-    "game_id": "123",
-    "rfid": "abc123",
-    "move": "e2e4"
-}</code></pre>
-
-                <h6 class="mt-3">Server Response</h6>
-                <pre><code>{
-    "status": "legal"
-}
-// or
-{
-    "status": "checkmate",
-    "winner": "abc123"
-}</code></pre>
-            </div>
-        </div>
+        <h3>Additional Information</h3>
+        <ul>
+            <li><strong>Board ID Format:</strong> Unique identifier per ESP32 (e.g., "Board-001")</li>
+            <li><strong>RFID Format:</strong> Unique identifier per player card</li>
+            <li><strong>Game Modes:</strong> blitz, classical, casual</li>
+            <li><strong>Time Limits:</strong> Specified in seconds (e.g., 300 for 5 minutes)</li>
+        </ul>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+</div>
+{% endblock %}

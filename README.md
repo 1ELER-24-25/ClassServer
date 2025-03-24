@@ -27,9 +27,10 @@
 
 ## :gear: Tech Stack Sneak Peek
 
-- :microchip: **ESP32 Boards**: The heart of our game boards.
+- 🔌 **ESP32 Boards**: The heart of our game boards.
 - :speech_balloon: **Mosquitto**: MQTT magic on port `1883`.
 - :zap: **InfluxDB**: Real-time game tracking (`8086`).
+- 📊 **Grafana**: Beautiful data visualization (`3000`).
 - :elephant: **PostgreSQL**: Persistent data home (`5432`).
 - :earth_americas: **Flask**: Web app on `5000`.
 - :whale: **Docker**: Keeping it all together.

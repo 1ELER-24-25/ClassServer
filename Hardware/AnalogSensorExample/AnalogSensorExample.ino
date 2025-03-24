@@ -23,7 +23,7 @@
 //////////////////////////////////////////////////////////////////
 
 // Sensor Settings
-const int SENSOR_PIN = 23;                    // GPIO pin connected to sensor
+const int SENSOR_PIN = 34;                    // GPIO pin connected to sensor (ADC1_CH6)
 const long READING_INTERVAL = 5000;           // How often to read sensor (in milliseconds)
 
 // MQTT Topic

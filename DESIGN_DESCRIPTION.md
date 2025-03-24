@@ -129,30 +129,32 @@ ClassServer connects ESP32-based game boards to a Dockerized server via MQTT, pr
 ---
 
 ## :file_folder: File Structure
+
+```
 ClassServer/
 ├── docker-compose.yml         :whale:
 ├── README.md                  :book:
 ├── installation.md            :wrench:
 ├── .env.example               :key:
-├── .gitignore                 :no_entry_sign:
+├── .gitignore                :no_entry_sign:
 ├── mosquitto/
 │   └── mosquitto.conf         :speech_balloon:
 ├── postgres/
 │   └── init.sql               :elephant:
 ├── grafana/
-│   ├── provisioning/         📊
-│   └── dashboards/           📊
+│   ├── provisioning/          📊
+│   └── dashboards/            📊
 ├── nodered/
-│   ├── flows.json            :gear:
-│   └── Dockerfile            :package:
+│   ├── flows.json             :gear:
+│   └── Dockerfile             :package:
 ├── webapp/
-│   ├── app.py                :earth_americas:
-│   ├── Dockerfile            :package:
-│   ├── requirements.txt      :page_facing_up:
-│   └── templates/            :page_with_curl:
+│   ├── app.py                 :earth_americas:
+│   ├── Dockerfile             :package:
+│   ├── requirements.txt       :page_facing_up:
+│   └── templates/             :page_with_curl:
 └── docs/
-    └── DESIGN_DESCRIPTION.md :blueprint:
-
+    └── DESIGN_DESCRIPTION.md  :blueprint:
+```
 
 ---
 

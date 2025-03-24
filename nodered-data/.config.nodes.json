@@ -429,7 +429,7 @@
     },
     "node-red-contrib-influxdb": {
         "name": "node-red-contrib-influxdb",
-        "version": "0.7.0",
+        "version": "0.6.1",
         "local": false,
         "user": false,
         "nodes": {

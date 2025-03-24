@@ -1,0 +1,5 @@
+msg.payload = {
+    raw_value: msg.payload.value,  // Original ADC value (0-4095)
+    voltage: (msg.payload.value * 3.3) / 4095  // Convert to voltage (0-3.3V)
+};
+return msg;

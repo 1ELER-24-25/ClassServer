@@ -175,11 +175,11 @@
                     "type": "function",
                     "z": "analog-sensor-flow",
                     "name": "Process Sensor Data",
-                    "func": "msg.payload = {\n    measurement: 'analog_sensors',\n    fields: {\n        value: msg.payload.value\n    },\n    tags: {\n        device_id: msg.payload.device_id\n    },\n    timestamp: msg.payload.timestamp\n};\nreturn msg;",
+                    "func": "// Add metadata and formatting\nconst value = msg.payload.value;\nconst deviceId = msg.payload.device_id;\nconst timestamp = msg.payload.timestamp;\n\n// Convert ADC value to voltage (ESP32 ADC is 12-bit, 0-4095)\nconst voltage = (value / 4095.0) * 3.3;\n\nmsg.payload = {\n    measurement: 'analog_sensors',\n    fields: {\n        raw_value: value,\n        voltage: voltage\n    },\n    tags: {\n        device_id: deviceId,\n        sensor_type: 'analog'\n    },\n    timestamp: timestamp\n};\n\nreturn msg;",
                     "outputs": 1,
                     "x": 350,
                     "y": 100,
-                    "wires": [["influx-out"]]
+                    "wires": [["influx-out", "debug"]]
                 },
                 {
                     "id": "influx-out",
@@ -192,6 +192,16 @@
                     "retentionPolicy": "",
                     "x": 570,
                     "y": 100,
+                    "wires": []
+                },
+                {
+                    "id": "debug",
+                    "type": "debug",
+                    "z": "analog-sensor-flow",
+                    "name": "Debug Output",
+                    "active": true,
+                    "x": 570,
+                    "y": 160,
                     "wires": []
                 }
             ]

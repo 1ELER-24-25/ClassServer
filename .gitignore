@@ -10,6 +10,22 @@ nodered-data/
 mosquitto/data/
 mosquitto/log/
 
+# Grafana
+grafana-data/
+!grafana/provisioning/**
+grafana-data/grafana.db
+grafana-data/plugins/
+grafana-data/sessions/
+grafana-data/png/
+grafana-data/alerting/
+grafana-data/csv/
+grafana-data/file-collections/
+grafana-data/logs/
+grafana-data/*.log
+grafana-data/preferences.json
+grafana-data/renderer/
+grafana-data/reporting/
+
 # Python
 __pycache__/
 *.py[cod]

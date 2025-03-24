@@ -9,6 +9,8 @@ RUN npm install \
 # Copy flows
 COPY flows.json /data/flows.json
 
-# Set permissions
-RUN chown -R node-red:root /data && \
-    chmod -R 775 /data
+# Remove the problematic permission changes
+# The permissions will be handled by docker-compose user mapping
+# Set permissions 
+#RUN chown -R node-red:root /data && \
+#    chmod -R 775 /data

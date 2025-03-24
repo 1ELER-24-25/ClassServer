@@ -71,7 +71,8 @@ def server_info():
         'mqtt': {'host': ip_address, 'port': 1883},
         'nodered': {'url': f'http://{ip_address}:1880'},
         'influxdb': {'url': f'http://{ip_address}:8086'},
-        'adminer': {'url': f'http://{ip_address}:8080'}
+        'adminer': {'url': f'http://{ip_address}:8080'},
+        'grafana': {'url': f'http://{ip_address}:3000'}
     }
     return render_template('server_info.html', info=info)
 

@@ -5,9 +5,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
   "links": [],
-  "liveNow": true,
+  "liveNow": false,
   "panels": [
     {
       "datasource": {
@@ -49,21 +48,11 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "decimals": 2,
           "max": 3.3,
           "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
           "unit": "volt"
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 8,
@@ -71,7 +60,6 @@
         "x": 0,
         "y": 0
       },
-      "id": 1,
       "options": {
         "legend": {
           "calcs": ["mean", "max", "min"],
@@ -137,20 +125,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
           "max": 4095,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
+          "min": 0
+        }
       },
       "gridPos": {
         "h": 8,
@@ -158,7 +135,6 @@
         "x": 12,
         "y": 0
       },
-      "id": 2,
       "options": {
         "legend": {
           "calcs": ["mean", "max", "min"],
@@ -183,6 +159,64 @@
       ],
       "title": "Raw ADC Values",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "volt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "InfluxDB"
+          },
+          "query": "from(bucket: \"games\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"analog_sensors\")\n  |> filter(fn: (r) => r[\"_field\"] == \"voltage\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Voltage",
+      "type": "stat"
     }
   ],
   "refresh": "5s",
@@ -198,7 +232,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Analog Sensors Dashboard",
+  "title": "Analog Sensor Dashboard V2",
   "version": 1,
   "weekStart": ""
 }

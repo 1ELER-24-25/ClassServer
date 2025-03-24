@@ -151,6 +151,51 @@
             "min": "1",
             "z": "",
             "connectionTimeout": "10000"
+        },
+        {
+            "id": "analog-sensor-flow",
+            "type": "tab",
+            "label": "Analog Sensor Processing",
+            "nodes": [
+                {
+                    "id": "mqtt-sensor-in",
+                    "type": "mqtt in",
+                    "z": "analog-sensor-flow",
+                    "name": "Sensor Data",
+                    "topic": "sensors/analog/+",
+                    "qos": "1",
+                    "datatype": "json",
+                    "broker": "broker-1",
+                    "x": 130,
+                    "y": 100,
+                    "wires": [["process-sensor"]]
+                },
+                {
+                    "id": "process-sensor",
+                    "type": "function",
+                    "z": "analog-sensor-flow",
+                    "name": "Process Sensor Data",
+                    "func": "msg.payload = {\n    measurement: 'analog_sensors',\n    fields: {\n        value: msg.payload.value\n    },\n    tags: {\n        device_id: msg.payload.device_id\n    },\n    timestamp: msg.payload.timestamp\n};\nreturn msg;",
+                    "outputs": 1,
+                    "x": 350,
+                    "y": 100,
+                    "wires": [["influx-out"]]
+                },
+                {
+                    "id": "influx-out",
+                    "type": "influxdb out",
+                    "z": "analog-sensor-flow",
+                    "name": "Store to InfluxDB",
+                    "influxdb": "influxdb",
+                    "measurement": "analog_sensors",
+                    "precision": "ms",
+                    "retentionPolicy": "",
+                    "x": 570,
+                    "y": 100,
+                    "wires": []
+                }
+            ]
         }
     ]
 }
+

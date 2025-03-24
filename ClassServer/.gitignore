@@ -47,3 +47,16 @@ var/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Hardware secrets and build files
+Hardware/**/secrets.h
+Hardware/**/.pio/
+Hardware/**/build/
+Hardware/**/.vscode/
+Hardware/**/.vscode/.browse.c_cpp.db*
+Hardware/**/.vscode/c_cpp_properties.json
+Hardware/**/.vscode/launch.json
+Hardware/**/.vscode/ipch
+
+# Keep example secrets file
+!Hardware/**/secrets.h.example

@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: classroom
+      defaultBucket: games
+    secureJsonData:
+      token: ${INFLUXDB_ADMIN_TOKEN}
+
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: ${POSTGRES_DB}
+    user: ${POSTGRES_USER}
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    jsonData:
+      sslmode: "disable"

@@ -1,0 +1,31 @@
+{
+  "title": "Analog Sensors Dashboard",
+  "panels": [
+    {
+      "title": "Sensor Readings",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"games\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"analog_sensors\")\n  |> group(columns: [\"device_id\"])"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  }
+}

@@ -82,10 +82,28 @@ services:
       - postgres
     restart: unless-stopped
 
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-klokkeprosjekt}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - influxdb
+      - postgres
+    restart: unless-stopped
+
 volumes:
   influxdb-data:
     driver: local
   postgres-data:
     driver: local
   nodered-data:
+    driver: local
+  grafana-data:
     driver: local

@@ -46,6 +46,9 @@ ClassServer connects ESP32-based game boards to a Dockerized server via MQTT, pr
     - Persistent storage for finished games, users, ELO.
 - **:earth_americas: Flask** (Port: `5000`):
   - Web app with Flask-Login for user authentication.
+- **📊 Grafana** (Port: `3000`):
+  - Real-time data visualization.
+  - Game statistics and leaderboards.
 - **:hammer: Adminer** (Port: `8080`):
   - PostgreSQL management interface.
 - **:whale: Docker Compose**:
@@ -128,14 +131,17 @@ ClassServer connects ESP32-based game boards to a Dockerized server via MQTT, pr
 ## :file_folder: File Structure
 ClassServer/
 ├── docker-compose.yml         :whale:
-├── README.md                 :book:
-├── installation.md           :wrench:
-├── .env.example              :key:
-├── .gitignore                :no_entry_sign:
+├── README.md                  :book:
+├── installation.md            :wrench:
+├── .env.example               :key:
+├── .gitignore                 :no_entry_sign:
 ├── mosquitto/
-│   └── mosquitto.conf        :speech_balloon:
+│   └── mosquitto.conf         :speech_balloon:
 ├── postgres/
-│   └── init.sql              :elephant:
+│   └── init.sql               :elephant:
+├── grafana/
+│   ├── provisioning/         📊
+│   └── dashboards/           📊
 ├── nodered/
 │   ├── flows.json            :gear:
 │   └── Dockerfile            :package:
@@ -145,7 +151,7 @@ ClassServer/
 │   ├── requirements.txt      :page_facing_up:
 │   └── templates/            :page_with_curl:
 └── docs/
-└── DESIGN_DESCRIPTION.md  :blueprint:
+    └── DESIGN_DESCRIPTION.md :blueprint:
 
 
 ---

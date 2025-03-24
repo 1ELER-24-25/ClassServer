@@ -35,15 +35,14 @@
 - :earth_americas: **Flask**: Web app on `5000`.
 - :whale: **Docker**: Keeping it all together.
 
----
-
 ## :construction: Under Construction
 
-This classroom server is still being built! Here’s what’s in progress:
+This classroom server is still being built! Here's what's in progress:
 
 - :hammer: Wiring up ESP32 boards with sensors and buttons.
 - :gear: Crafting Node-RED flows for chess logic.
 - :art: Designing the Flask web interface.
+- 📊 Setting up Grafana dashboards.
 - :bug: Squashing bugs and testing in the wild.
 
 **Want to help?** Join the fun—fork, clone, and contribute! :raised_hands:

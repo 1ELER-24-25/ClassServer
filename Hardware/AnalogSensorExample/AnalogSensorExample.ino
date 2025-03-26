@@ -142,19 +142,14 @@ void reconnectMQTT() {
 }
 
 void publishSensorData(int sensorValue, unsigned long timestamp) {
-  // Create JSON payload
-  char payload[JSON_BUFFER_SIZE];
+  char payload[100];
+  float voltage = (sensorValue / 4095.0) * 3.3;
+  
   snprintf(payload, sizeof(payload), 
-           "{\"device_id\":\"%s\",\"value\":%d,\"timestamp\":%lu}", 
-           DEVICE_ID, sensorValue, timestamp);
+           "{\"measurement\":\"voltage\",\"value\":%.2f}", 
+           voltage);
   
-  // Publish to MQTT
   mqttClient.publish(MQTT_TOPIC, payload);
-  
-  // Debug output
-  Serial.println("\n=== Publishing Data ===");
-  Serial.printf("Topic: %s\n", MQTT_TOPIC);
-  Serial.printf("Payload: %s\n", payload);
 }
 
 //////////////////////////////////////////////////////////////////

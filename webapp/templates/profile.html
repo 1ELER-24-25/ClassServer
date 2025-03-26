@@ -6,20 +6,19 @@
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header">
-                    <h5>Profile Information</h5>
+                    <h5>Profilinformasjon</h5>
                 </div>
                 <div class="card-body">
                     <p class="card-text">
-                        Username: <span id="username">Loading...</span><br>
-                        RFID: <span id="rfid">Loading...</span>
+                        Brukernavn: <span id="username">Laster...</span><br>
+                        RFID: <span id="rfid">Laster...</span>
                     </p>
-                    <!-- Add action buttons -->
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('virtual_board') }}" class="btn btn-success">
-                            Play Chess
+                            Spill Sjakk
                         </a>
                         <a href="{{ url_for('logout') }}" class="btn btn-danger">
-                            Log Out
+                            Logg Ut
                         </a>
                     </div>
                 </div>
@@ -27,22 +26,21 @@
 
             <div class="card mt-3">
                 <div class="card-header">
-                    <h5>ELO Ratings</h5>
+                    <h5>ELO Rangering</h5>
                 </div>
                 <div class="card-body">
                     <p class="card-text">
-                        Chess: <span id="chess-elo">Loading...</span><br>
-                        Foosball: <span id="foosball-elo">Loading...</span>
+                        Sjakk: <span id="chess-elo">Laster...</span><br>
+                        Fotballspill: <span id="foosball-elo">Laster...</span>
                     </p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-8">
-            <h2>Game History</h2>
+            <h2>Spillhistorikk</h2>
             <div id="gameHistory" class="retro-container">
-                <!-- Game history will be populated here via JavaScript -->
-                <p class="loading">Loading game history...</p>
+                <p class="loading">Laster spillhistorikk...</p>
             </div>
         </div>
     </div>

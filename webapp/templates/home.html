@@ -2,22 +2,56 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Velkommen til Klasseserveren</h1>
-    <p class="lead">IoT Gaming System for 1ELER-24-25</p>
-    
+    <div class="jumbotron text-center">
+        <h1>Velkommen til ClassServer</h1>
+        <p class="lead">IoT Spillsystem for Klasserommet</p>
+    </div>
+
     <div class="row mt-4">
-        <div class="col-md-6">
-            <h2>Aktive Spill</h2>
-            <div id="activeGames">
-                <p class="loading">Loading games...</p>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Aktive Spill</h5>
+                </div>
+                <div class="card-body">
+                    <div id="activeGames">Laster...</div>
+                </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <h2>Ledertavle</h2>
-            <div id="leaderboard">
-                <p class="loading">Loading leaderboard...</p>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Toppliste</h5>
+                </div>
+                <div class="card-body">
+                    <div id="leaderboard">Laster...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Statistikk</h5>
+                </div>
+                <div class="card-body">
+                    <p>Totale spill: <span id="totalGames">Laster...</span></p>
+                    <p>Aktive spillere: <span id="activePlayers">Laster...</span></p>
+                    <p>Tilkoblede brett: <span id="connectedBoards">Laster...</span></p>
+                </div>
             </div>
         </div>
     </div>
+
+    {% if current_user.is_authenticated %}
+    <div class="text-center mt-4">
+        <a href="{{ url_for('virtual_board') }}" class="btn btn-lg btn-primary">Start et nytt spill</a>
+    </div>
+    {% else %}
+    <div class="text-center mt-4">
+        <a href="{{ url_for('login') }}" class="btn btn-lg btn-primary">Logg inn for å spille</a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

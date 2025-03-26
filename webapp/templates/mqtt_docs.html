@@ -1,88 +1,75 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mqtt-docs">
-    <h2>MQTT Documentation</h2>
-    
-    <div class="code-display">
-        <h3>Connection Details</h3>
-        <p>MQTT Broker: <span class="topic-example">{{ info.mqtt.host }}:{{ info.mqtt.port }}</span></p>
-        <p>QoS Level: <span class="topic-example">1</span> (at least once delivery)</p>
-        
-        <h3>Topic Structure</h3>
-        <p>Base topic: <span class="topic-example">chess/board/{board_id}</span></p>
-        
-        <h4>Outbound Messages (ESP32 → Server)</h4>
-        <table class="code-table table">
-            <thead>
-                <tr>
-                    <th>Topic</th>
-                    <th>Description</th>
-                    <th>Payload Example</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><code>games/chess/start</code></td>
-                    <td>Start a new game</td>
-                    <td><code>{"board_id": "Board-001", "rfid_white": "abc123", "rfid_black": "xyz789", "mode": "blitz", "time_limit": 300}</code></td>
-                </tr>
-                <tr>
-                    <td><code>games/chess/move</code></td>
-                    <td>Make a move</td>
-                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123", "move": "e2e4"}</code></td>
-                </tr>
-                <tr>
-                    <td><code>games/chess/forfeit</code></td>
-                    <td>Forfeit the game</td>
-                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
-                </tr>
-                <tr>
-                    <td><code>games/chess/remis</code></td>
-                    <td>Request/accept draw (needs two messages)</td>
-                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
-                </tr>
-                <tr>
-                    <td><code>games/chess/timeout</code></td>
-                    <td>Time ran out</td>
-                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
-                </tr>
-                <tr>
-                    <td><code>games/chess/cancel</code></td>
-                    <td>Cancel the game</td>
-                    <td><code>{"board_id": "Board-001", "game_id": "123", "rfid": "abc123"}</code></td>
-                </tr>
-            </tbody>
-        </table>
+<div class="container mt-4">
+    <h1>MQTT Dokumentasjon</h1>
 
-        <h4>Inbound Messages (Server → ESP32)</h4>
-        <table class="code-table table">
-            <thead>
-                <tr>
-                    <th>Topic Pattern</th>
-                    <th>Description</th>
-                    <th>Payload Examples</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><code>games/chess/response/{board_id}/{game_id}</code></td>
-                    <td>Server response to moves/actions</td>
-                    <td>
-                        <code>{"status": "legal"}</code><br>
-                        <code>{"status": "checkmate", "winner": "abc123"}</code>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Tilkoblingsinformasjon</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Broker:</strong> {{ mqtt_host }}</p>
+            <p><strong>Port:</strong> 1883 (MQTT), 9001 (WebSocket)</p>
+            <p><strong>QoS:</strong> 1 (minst én levering)</p>
+        </div>
+    </div>
 
-        <h3>Additional Information</h3>
-        <ul>
-            <li><strong>Board ID Format:</strong> Unique identifier per ESP32 (e.g., "Board-001")</li>
-            <li><strong>RFID Format:</strong> Unique identifier per player card</li>
-            <li><strong>Game Modes:</strong> blitz, classical, casual</li>
-            <li><strong>Time Limits:</strong> Specified in seconds (e.g., 300 for 5 minutes)</li>
-        </ul>
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Emner og Meldingsformat</h5>
+        </div>
+        <div class="card-body">
+            <h6>Spillstart</h6>
+            <pre><code>Emne: games/chess/start
+Format: {
+    "board_id": "Brett-001",
+    "rfid_white": "abc123",
+    "rfid_black": "xyz789",
+    "mode": "blitz",
+    "time_limit": 300
+}</code></pre>
+
+            <h6>Trekk</h6>
+            <pre><code>Emne: games/chess/move
+Format: {
+    "board_id": "Brett-001",
+    "game_id": "123",
+    "rfid": "abc123",
+    "move": "e2e4"
+}</code></pre>
+
+            <h6>Gi Opp</h6>
+            <pre><code>Emne: games/chess/forfeit
+Format: {
+    "board_id": "Brett-001",
+    "game_id": "123",
+    "rfid": "abc123"
+}</code></pre>
+
+            <h6>Remis</h6>
+            <pre><code>Emne: games/chess/remis
+Format: {
+    "board_id": "Brett-001",
+    "game_id": "123",
+    "rfid": "abc123"
+}</code></pre>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Feilsøking</h5>
+        </div>
+        <div class="card-body">
+            <h6>Vanlige Problemer</h6>
+            <ul>
+                <li>Sjekk at brettet er koblet til riktig WiFi-nettverk</li>
+                <li>Verifiser at MQTT-broker er tilgjengelig</li>
+                <li>Kontroller at RFID-brikken er registrert i systemet</li>
+                <li>Se etter feilmeldinger i Node-RED-debuggeren</li>
+            </ul>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -1,69 +1,33 @@
 [
     {
-        "id": "analog-sensor-flow",
-        "type": "tab",
-        "label": "Analog Sensor Processing",
-        "disabled": false,
-        "info": "Processes analog sensor data from ESP32"
-    },
-    {
-        "id": "mqtt-sensor-in",
+        "id": "mqtt-in",
         "type": "mqtt in",
-        "z": "analog-sensor-flow",
-        "name": "Sensor Data",
-        "topic": "sensors/analog/+",
+        "name": "MQTT Input",
+        "topic": "sensors/analog/sensor1",
         "qos": "1",
         "datatype": "json",
         "broker": "broker-1",
-        "x": 130,
+        "x": 150,
         "y": 100,
-        "wires": [["process-sensor"]]
+        "wires": [["debug", "influx"]]
     },
     {
-        "id": "process-sensor",
-        "type": "function",
-        "z": "analog-sensor-flow",
-        "name": "Process Sensor Data",
-        "func": "const value = parseInt(msg.payload.value);  // Ensure it's a number\nif (isNaN(value) || value < 0 || value > 4095) {\n    node.error(\"Invalid sensor value: \" + msg.payload.value);\n    return null;\n}\n\nconst deviceId = msg.payload.device_id;\nconst voltage = (value / 4095.0) * 3.3;\n\nmsg.payload = {\n    measurement: \"analog_sensors\",\n    fields: {\n        raw_value: value,\n        voltage: parseFloat(voltage.toFixed(3))  // Round to 3 decimal places\n    },\n    tags: {\n        device_id: deviceId,\n        sensor_type: \"analog\"\n    }\n};\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "x": 350,
-        "y": 100,
-        "wires": [["influx-out", "debug"]]
-    },
-    {
-        "id": "influx-out",
+        "id": "influx",
         "type": "influxdb out",
-        "z": "analog-sensor-flow",
-        "name": "Store to InfluxDB",
+        "name": "InfluxDB",
         "influxdb": "influxdb-config",
-        "measurement": "analog_sensors",
-        "precision": "ms",
-        "retentionPolicy": "",
-        "database": "",
-        "precisionV18FluxV20": "ms",
-        "retentionPolicyV18Flux": "",
         "org": "classroom",
         "bucket": "iot",
-        "x": 570,
-        "y": 100,
-        "wires": []
+        "x": 350,
+        "y": 100
     },
     {
         "id": "debug",
         "type": "debug",
-        "z": "analog-sensor-flow",
-        "name": "Debug Output",
+        "name": "Debug",
         "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
         "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 570,
-        "y": 160,
-        "wires": []
+        "x": 350,
+        "y": 160
     }
 ]

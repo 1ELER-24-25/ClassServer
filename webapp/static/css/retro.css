@@ -13,23 +13,29 @@
     /* Gradients */
     --retro-gradient: linear-gradient(45deg, var(--retro-purple), var(--retro-blue));
     --neon-shadow: 0 0 10px var(--retro-cyan);
+    
+    /* Font families */
+    --retro-heading-font: 'Press Start 2P', cursive;
+    --retro-body-font: 'IBM Plex Mono', 'Share Tech Mono', monospace;
 }
 
 /* Base Styles */
 body {
-    font-family: 'VT323', monospace;
-    font-size: 1.2rem;
+    font-family: var(--retro-body-font);
+    font-size: 1rem;
     background-color: var(--retro-black);
-    color: var(--retro-cyan);  /* Default text color */
+    color: var(--retro-cyan);
     line-height: 1.6;
+    letter-spacing: 0.02em;
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Press Start 2P', cursive;
+    font-family: var(--retro-heading-font);
     color: var(--retro-yellow);
     text-shadow: var(--neon-shadow);
     margin-bottom: 1.5rem;
+    line-height: 1.8;
 }
 
 /* Retro Container */
@@ -50,16 +56,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .navbar-brand {
-    font-family: 'Press Start 2P', cursive;
+    font-family: var(--retro-heading-font);
     font-size: 1.2rem;
-    color: var(--retro-yellow) !important;
-    text-shadow: var(--neon-shadow);
 }
 
 .nav-link {
     color: var(--retro-cyan) !important;
-    font-family: 'VT323', monospace;
-    font-size: 1.3rem;
+    font-family: var(--retro-body-font);
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
     transition: all 0.3s ease;
 }
 
@@ -90,8 +95,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Buttons */
 .btn {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.9rem;
+    font-family: var(--retro-body-font);
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
     padding: 0.75rem 1.5rem;
     border: 2px solid;
     transition: all 0.3s ease;
@@ -114,8 +121,8 @@ h1, h2, h3, h4, h5, h6 {
     background-color: rgba(10, 10, 10, 0.8);
     border: 2px solid var(--retro-purple);
     color: var(--retro-cyan);
-    font-family: 'VT323', monospace;
-    font-size: 1.2rem;
+    font-family: var(--retro-body-font);
+    font-size: 1rem;
 }
 
 .form-control:focus {
@@ -127,17 +134,156 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Tables */
 .table {
-    color: var(--retro-cyan);
+    font-family: var(--retro-body-font);
+    font-size: 0.95rem;
 }
 
 .table td, .table th {
     color: var(--retro-cyan);  /* Explicit color for table cells */
 }
 
+/* Code displays */
+.code-display, pre, code {
+    font-family: var(--retro-body-font);
+    font-size: 0.95rem;
+}
+
+/* Server info specific styling */
+.server-info {
+    font-family: var(--retro-body-font);
+    font-size: 1rem;
+}
+
+.server-info .info-label {
+    color: var(--retro-yellow);
+    font-weight: 500;
+}
+
+.server-info .info-value {
+    color: var(--retro-cyan);
+    padding-left: 1rem;
+}
+
+/* MQTT docs specific styling */
+.mqtt-docs code {
+    color: var(--retro-green);
+}
+
+.mqtt-docs .topic-example {
+    font-family: var(--retro-body-font);
+    color: var(--retro-orange);
+    background: rgba(10, 10, 10, 0.9);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+}
+
+/* Table modifications for code display */
+.code-table {
+    font-family: var(--retro-body-font);
+    font-size: 0.9rem;
+    background: transparent;  /* Remove default background */
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.code-table th {
+    color: var(--retro-yellow);
+    border-bottom: 2px solid var(--retro-purple);
+    padding: 0.75rem;
+    background-color: rgba(10, 10, 10, 0.9);  /* Dark background for headers */
+}
+
+.code-table td {
+    color: var(--retro-cyan);
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--retro-purple);
+    background-color: rgba(10, 10, 10, 0.9);  /* Dark background for cells */
+}
+
+/* Override Bootstrap's default table styles */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-bg: rgba(107, 47, 191, 0.1);  /* Very subtle purple stripe */
+    --bs-table-striped-color: var(--retro-cyan);
+    --bs-table-hover-bg: rgba(0, 255, 255, 0.1);  /* Subtle cyan hover */
+    --bs-table-hover-color: var(--retro-yellow);
+}
+
+/* Specific styles for the MQTT docs tables */
+.mqtt-docs .code-table code {
+    background: rgba(57, 255, 20, 0.1);  /* Subtle green background for code */
+    border: 1px solid var(--retro-green);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+}
+
+.mqtt-docs .code-table td,
+.mqtt-docs .code-table th {
+    vertical-align: top;
+}
+
+/* Add some spacing between multiple code blocks in a cell */
+.mqtt-docs .code-table td code {
+    display: inline-block;
+    margin: 2px 0;
+}
+
+/* Server Info specific styling */
+.table-dark {
+    --bs-table-bg: var(--retro-bg-dark);
+    --bs-table-striped-bg: var(--retro-bg-darker);
+    --bs-table-hover-bg: var(--retro-bg-darkest);
+    --bs-table-border-color: var(--retro-border);
+    color: var(--retro-text);
+}
+
+.table-dark a {
+    color: var(--retro-cyan);
+    text-decoration: none;
+}
+
+.table-dark a:hover {
+    color: var(--retro-yellow);
+    text-decoration: underline;
+}
+
+.card {
+    background: var(--retro-bg-dark);
+    border: 1px solid var(--retro-border);
+}
+
+.card-header {
+    background: var(--retro-bg-darker);
+    border-bottom: 1px solid var(--retro-border);
+}
+
+.list-group-item {
+    background: var(--retro-bg-dark);
+    border: 1px solid var(--retro-border);
+    color: var(--retro-text);
+}
+
+/* Badge styling */
+.badge {
+    font-family: var(--retro-body-font);
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+}
+
+/* System resource indicators */
+#cpu-usage, #memory-usage, #disk-usage {
+    color: var(--retro-cyan);
+    font-family: var(--retro-body-font);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     body {
-        font-size: 1rem;
+        font-size: 0.95rem;
     }
     
     h1 {
@@ -177,7 +323,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Loading Animation */
 .loading {
-    font-family: 'Press Start 2P', cursive;
+    font-family: var(--retro-heading-font);
     color: var(--retro-yellow);
     animation: blink 1s infinite;
 }
@@ -194,7 +340,8 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--retro-cyan);
     padding: 1rem 0;
     border-top: 2px solid var(--retro-cyan);
-    font-family: 'VT323', monospace;
+    font-family: var(--retro-body-font);
+    font-size: 0.9rem;
 }
 
 /* Links */
@@ -334,4 +481,49 @@ pre {
 .mqtt-docs .code-table td code {
     display: inline-block;
     margin: 2px 0;
+}
+
+/* Server Info specific styling */
+.table-dark {
+    --bs-table-bg: var(--retro-bg-dark);
+    --bs-table-striped-bg: var(--retro-bg-darker);
+    --bs-table-hover-bg: var(--retro-bg-darkest);
+    --bs-table-border-color: var(--retro-border);
+    color: var(--retro-text);
+}
+
+.table-dark a {
+    color: var(--retro-cyan);
+    text-decoration: none;
+}
+
+.table-dark a:hover {
+    color: var(--retro-yellow);
+    text-decoration: underline;
+}
+
+.card {
+    background: var(--retro-bg-dark);
+    border: 1px solid var(--retro-border);
+}
+
+.card-header {
+    background: var(--retro-bg-darker);
+    border-bottom: 1px solid var(--retro-border);
+}
+
+.list-group-item {
+    background: var(--retro-bg-dark);
+    border: 1px solid var(--retro-border);
+    color: var(--retro-text);
+}
+
+.badge {
+    font-family: 'VT323', monospace;
+}
+
+#cpu-usage, #memory-usage, #disk-usage {
+    color: var(--retro-cyan);
+    font-family: 'VT323', monospace;
+    font-size: 1.2em;
 }

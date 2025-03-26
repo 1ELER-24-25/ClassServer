@@ -1,11 +1,18 @@
 FROM python:3.9-slim
 WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
 COPY . .
 
-# Add debug script
-RUN echo "#!/bin/sh\nenv\npython app.py" > /app/start.sh
-RUN chmod +x /app/start.sh
+# Create start script in a different directory that won't be overwritten by volume mount
+RUN mkdir -p /scripts && \
+    echo '#!/bin/sh' > /scripts/start.sh && \
+    echo 'env' >> /scripts/start.sh && \
+    echo 'python /app/app.py' >> /scripts/start.sh && \
+    chmod +x /scripts/start.sh
 
-CMD ["/app/start.sh"]
+CMD ["/scripts/start.sh"]

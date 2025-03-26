@@ -68,7 +68,6 @@ services:
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-      - SERVER_IP=192.168.1.100
     depends_on:
       - postgres
     restart: unless-stopped

@@ -65,7 +65,8 @@ def home():
 
 @app.route('/server-info')
 def server_info():
-    ip_address = os.environ.get('SERVER_IP', '192.168.1.100')
+    # Change the default fallback value to match .env
+    ip_address = os.environ.get('SERVER_IP', '192.168.1.216')
     
     info = {
         'mqtt': {'host': ip_address, 'port': 1883},
@@ -78,7 +79,11 @@ def server_info():
 
 @app.route('/mqtt-docs')
 def mqtt_docs():
-    return render_template('mqtt_docs.html')
+    ip_address = os.environ.get('SERVER_IP', '192.168.1.216')
+    info = {
+        'mqtt': {'host': ip_address, 'port': 1883}
+    }
+    return render_template('mqtt_docs.html', info=info)
 
 @app.route('/profile')
 @login_required

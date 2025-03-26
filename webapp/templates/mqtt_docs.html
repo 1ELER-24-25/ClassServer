@@ -6,7 +6,7 @@
     
     <div class="code-display">
         <h3>Connection Details</h3>
-        <p>MQTT Broker: <span class="topic-example">192.168.1.100:1883</span></p>
+        <p>MQTT Broker: <span class="topic-example">{{ info.mqtt.host }}:{{ info.mqtt.port }}</span></p>
         <p>QoS Level: <span class="topic-example">1</span> (at least once delivery)</p>
         
         <h3>Topic Structure</h3>

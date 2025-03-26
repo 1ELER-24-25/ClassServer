@@ -12,6 +12,7 @@ sudo lsof -i :1880    # Node-RED
 sudo lsof -i :8086    # InfluxDB
 sudo lsof -i :8080    # Adminer
 sudo lsof -i :1883    # MQTT
+sudo lsof -i :3000    # Grafana
 ```
 
 2. Ensure Docker is installed and running:
@@ -53,10 +54,15 @@ FLASK_SECRET_KEY=your_random_string
 
 3. Set up permissions and start services:
 ```bash
+# This step is REQUIRED - it sets up proper permissions for all services
 chmod +x setup-permissions.sh
 ./setup-permissions.sh
+
+# Start all services
 docker-compose up -d
 ```
+
+**Important**: The permissions setup script ensures that all services (InfluxDB, PostgreSQL, Node-RED, Mosquitto, and Grafana) have the correct permissions to access their data directories. Skipping this step will result in permission errors.
 
 ## Verify Installation
 
@@ -75,6 +81,7 @@ docker-compose logs webapp  # Specific container
 - Node-RED: http://localhost:1880
 - InfluxDB: http://localhost:8086
 - Adminer: http://localhost:8080
+- Grafana: http://localhost:3000
 
 ## Common Docker Commands
 
@@ -176,6 +183,30 @@ docker-compose exec influxdb influx bucket list --org classroom
 docker-compose exec influxdb influx query \
     --org classroom \
     'from(bucket:"games") |> range(start: -1h)'
+```
+
+## Grafana Setup
+
+The Grafana instance is automatically configured with:
+- Default admin credentials from .env (GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD)
+- Pre-configured dashboards for chess games
+- Data sources for InfluxDB and PostgreSQL
+
+To verify the setup:
+1. Visit http://localhost:3000
+2. Login with credentials from .env (default: admin/klokkeprosjekt)
+3. Check the pre-configured dashboards under Home > Dashboards
+
+Common Grafana operations:
+```bash
+# Restart Grafana container
+docker-compose restart grafana
+
+# View Grafana logs
+docker-compose logs grafana
+
+# Reset admin password
+docker-compose exec grafana grafana-cli admin reset-admin-password new_password
 ```
 
 ## Need Help?

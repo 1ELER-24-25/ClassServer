@@ -1,31 +1,167 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="server-info">
-    <h2>Server Information</h2>
+<div class="server-info container mt-4">
+    <h2 class="mb-4">Server Information</h2>
     
-    <div class="code-display">
-        <div>
-            <span class="info-label">MQTT Broker:</span>
-            <span class="info-value">{{ info.mqtt.host }}:{{ info.mqtt.port }}</span>
-        </div>
-        <div>
-            <span class="info-label">Node-RED:</span>
-            <span class="info-value">{{ info.nodered.url }}</span>
-        </div>
-        <div>
-            <span class="info-label">InfluxDB:</span>
-            <span class="info-value">{{ info.influxdb.url }}</span>
-        </div>
-        <div>
-            <span class="info-label">Adminer:</span>
-            <span class="info-value">{{ info.adminer.url }}</span>
-        </div>
-        <div>
-            <span class="info-label">Grafana:</span>
-            <span class="info-value">{{ info.grafana.url }}</span>
-            <span class="info-description">(Data visualization & dashboards)</span>
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> All services are running on <strong>{{ info.mqtt.host }}</strong>
+                    </div>
+
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">MQTT Broker (Mosquitto)</h5>
+                                    <p class="mb-1">Message broker for real-time communication between ESP32 boards and server</p>
+                                    <small>Connection: <code>{{ info.mqtt.host }}:{{ info.mqtt.port }}</code></small>
+                                </div>
+                                <span class="badge bg-primary">Port {{ info.mqtt.port }}</span>
+                            </div>
+                        </div>
+
+                        <a href="{{ info.nodered.url }}" target="_blank" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">Node-RED</h5>
+                                    <p class="mb-1">Flow-based programming for game logic and data processing</p>
+                                    <small>URL: <code>{{ info.nodered.url }}</code></small>
+                                </div>
+                                <span class="badge bg-success">Port 1880</span>
+                            </div>
+                        </a>
+
+                        <a href="{{ info.influxdb.url }}" target="_blank" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">InfluxDB</h5>
+                                    <p class="mb-1">Time-series database for game moves and sensor data</p>
+                                    <small>URL: <code>{{ info.influxdb.url }}</code></small>
+                                </div>
+                                <span class="badge bg-info">Port 8086</span>
+                            </div>
+                        </a>
+
+                        <a href="{{ info.adminer.url }}" target="_blank" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">Adminer</h5>
+                                    <p class="mb-1">Database management interface for PostgreSQL</p>
+                                    <small>URL: <code>{{ info.adminer.url }}</code></small>
+                                </div>
+                                <span class="badge bg-warning">Port 8080</span>
+                            </div>
+                        </a>
+
+                        <a href="{{ info.grafana.url }}" target="_blank" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">Grafana</h5>
+                                    <p class="mb-1">Data visualization & dashboards for game statistics</p>
+                                    <small>URL: <code>{{ info.grafana.url }}</code></small>
+                                </div>
+                                <span class="badge bg-danger">Port 3000</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Tips</h5>
+                    <ul class="list-unstyled">
+                        <li>✅ All services use the same IP address for easy access</li>
+                        <li>✅ Click on any service (except MQTT) to open its interface</li>
+                        <li>✅ Default credentials can be found in the <code>.env</code> file</li>
+                        <li>✅ MQTT WebSocket port (9001) is available for web clients</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+{% block extra_head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+<style>
+    /* Override Bootstrap's default styles with retro theme */
+    .server-info .list-group-item {
+        background: var(--retro-black);
+        border: 2px solid var(--retro-purple);
+        color: var(--retro-cyan);
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .server-info .list-group-item:hover {
+        border-color: var(--retro-cyan);
+        box-shadow: var(--neon-shadow);
+        background: rgba(107, 47, 191, 0.2);
+    }
+
+    .server-info .list-group-item-action {
+        color: var(--retro-cyan);
+    }
+
+    .server-info .list-group-item h5 {
+        color: var(--retro-yellow);
+        text-shadow: var(--neon-shadow);
+    }
+
+    .server-info code {
+        background: rgba(0, 255, 255, 0.1);
+        border: 1px solid var(--retro-cyan);
+        color: var(--retro-green);
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+
+    .server-info .alert-info {
+        background: rgba(65, 105, 225, 0.2);
+        border-color: var(--retro-blue);
+        color: var(--retro-cyan);
+    }
+
+    .server-info .badge {
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.7rem;
+        padding: 8px 12px;
+    }
+
+    .server-info small {
+        color: var(--retro-gray);
+    }
+
+    .server-info .card {
+        background: var(--retro-black);
+        border: 2px solid var(--retro-purple);
+    }
+
+    .server-info .card:hover {
+        border-color: var(--retro-cyan);
+        box-shadow: var(--neon-shadow);
+    }
+
+    .server-info .card-title {
+        color: var(--retro-yellow);
+        text-shadow: var(--neon-shadow);
+    }
+
+    /* Make links more visible on hover */
+    .server-info a:hover {
+        text-decoration: none;
+    }
+
+    /* Style the checkmark items */
+    .server-info li {
+        margin-bottom: 0.5rem;
+        color: var(--retro-cyan);
+    }
+</style>
+{% endblock %}
 {% endblock %}

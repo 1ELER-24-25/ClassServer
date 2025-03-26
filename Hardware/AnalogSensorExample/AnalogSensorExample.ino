@@ -17,6 +17,7 @@
 #include <WiFi.h>        // Built-in ESP32 WiFi library
 #include <PubSubClient.h> // MQTT library - install via Arduino Library Manager
 #include "secrets.h"     // Sensitive configuration (not in git)
+#include <math.h>        // For sin() function
 
 //////////////////////////////////////////////////////////////////
 // SENSOR CONFIGURATION - Adjust these for your sensor
@@ -40,6 +41,14 @@ const int JSON_BUFFER_SIZE = 100;             // Size of buffer for JSON message
 WiFiClient espClient;                         // WiFi client object
 PubSubClient mqttClient(espClient);           // MQTT client object
 unsigned long lastReadingTime = 0;            // Tracks last sensor reading time
+
+// New variables for simulation
+bool simulationMode = false;
+float simulationAngle = 0.0;  // For sine wave generation
+//const float TWO_PI = 6.28318530718;
+const float SIMULATION_AMPLITUDE = 2000.0;  // Amplitude of sine wave
+const float SIMULATION_OFFSET = 2047.0;     // Center point of sine wave
+const float SIMULATION_NOISE = 100.0;       // Random noise amplitude
 
 //////////////////////////////////////////////////////////////////
 // Setup Functions
@@ -73,6 +82,45 @@ void setupSensor() {
   pinMode(SENSOR_PIN, INPUT);
   Serial.printf("Sensor PIN: %d\n", SENSOR_PIN);
   Serial.printf("Reading Interval: %ld ms\n", READING_INTERVAL);
+}
+
+//////////////////////////////////////////////////////////////////
+// Simulation Functions
+//////////////////////////////////////////////////////////////////
+
+int generateSimulatedReading() {
+  // Generate a sine wave with some random noise
+  float sineValue = sin(simulationAngle);
+  float noise = (random(1000) / 1000.0 - 0.5) * SIMULATION_NOISE;
+  
+  // Calculate final value
+  int simulatedValue = (int)(SIMULATION_OFFSET + sineValue * SIMULATION_AMPLITUDE + noise);
+  
+  // Ensure value stays within ADC range (0-4095)
+  simulatedValue = constrain(simulatedValue, 0, 4095);
+  
+  // Increment angle for next reading (adjust speed by changing the increment)
+  simulationAngle += 0.1;
+  if (simulationAngle >= TWO_PI) {
+    simulationAngle -= TWO_PI;
+  }
+  
+  return simulatedValue;
+}
+
+void checkSerialCommand() {
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    
+    if (command == "GEN") {
+      simulationMode = true;
+      Serial.println("Switching to simulation mode - generating fake measurements");
+    } else if (command == "REAL") {
+      simulationMode = false;
+      Serial.println("Switching to real sensor mode");
+    }
+  }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -117,14 +165,22 @@ void setup() {
   // Initialize serial communication
   Serial.begin(SERIAL_BAUD);
   Serial.println("\nESP32 Analog Sensor Example Starting...");
+  Serial.println("Type 'GEN' to start simulation mode");
+  Serial.println("Type 'REAL' to use real sensor");
   
   // Setup components
   setupSensor();
   setupWiFi();
   setupMQTT();
+  
+  // Initialize random seed for simulation
+  randomSeed(analogRead(SENSOR_PIN));
 }
 
 void loop() {
+  // Check for serial commands
+  checkSerialCommand();
+  
   // Ensure MQTT connection
   if (!mqttClient.connected()) {
     reconnectMQTT();
@@ -136,8 +192,14 @@ void loop() {
   if (currentTime - lastReadingTime >= READING_INTERVAL) {
     lastReadingTime = currentTime;
     
-    // Read sensor
-    int sensorValue = analogRead(SENSOR_PIN);
+    // Get sensor value (real or simulated)
+    int sensorValue;
+    if (simulationMode) {
+      sensorValue = generateSimulatedReading();
+      Serial.printf("Simulated value: %d\n", sensorValue);
+    } else {
+      sensorValue = analogRead(SENSOR_PIN);
+    }
     
     // Publish the reading
     publishSensorData(sensorValue, currentTime);

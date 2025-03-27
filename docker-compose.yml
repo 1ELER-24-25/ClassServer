@@ -51,6 +51,9 @@ services:
     environment:
       - NODE_RED_ENABLE_PROJECTS=true
       - TZ=Europe/Oslo
+      - NODE_RED_CREDENTIAL_SECRET=${NODE_RED_CREDENTIAL_SECRET}
+    env_file:
+      - .env
     depends_on:
       - mosquitto
       - influxdb

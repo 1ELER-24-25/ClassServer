@@ -449,23 +449,23 @@
             }
         }
     },
-    "node-red-contrib-postgres": {
-        "name": "node-red-contrib-postgres",
-        "version": "0.6.1",
+    "node-red-contrib-postgresql": {
+        "name": "node-red-contrib-postgresql",
+        "version": "0.12.0",
         "local": false,
         "user": false,
         "nodes": {
-            "PostgreSql": {
-                "name": "PostgreSql",
+            "postgresql": {
+                "name": "postgresql",
                 "types": [
-                    "postgresdb",
-                    "postgres"
+                    "postgreSQLConfig",
+                    "postgresql"
                 ],
                 "enabled": true,
                 "local": false,
                 "user": false,
-                "module": "node-red-contrib-postgres",
-                "file": "/usr/src/node-red/node_modules/node-red-contrib-postgres/postgres.js"
+                "module": "node-red-contrib-postgresql",
+                "file": "/usr/src/node-red/node_modules/node-red-contrib-postgresql/postgresql.js"
             }
         }
     }

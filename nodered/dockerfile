@@ -1,16 +1,18 @@
 FROM nodered/node-red:latest
 
+# Remove any existing postgres nodes to avoid conflicts
+RUN npm uninstall node-red-contrib-postgres || true
+
 # Install required Node-RED nodes
-RUN npm install \
+RUN npm install --no-cache-dir \
     chess.js@^0.13.4 \
     node-red-contrib-influxdb@^0.6.1 \
-    node-red-contrib-postgres@^0.6.1
+    node-red-contrib-postgresql@^0.12.0
 
 # Copy flows
 COPY flows.json /data/flows.json
 
-# Remove the problematic permission changes
-# The permissions will be handled by docker-compose user mapping
-# Set permissions 
-#RUN chown -R node-red:root /data && \
-#    chmod -R 775 /data
+# Create settings file with credential secret
+RUN echo 'module.exports = { \
+    credentialSecret: process.env.NODE_RED_CREDENTIAL_SECRET || "a-secret-key", \
+    };' > /data/settings.js

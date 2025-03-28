@@ -10,6 +10,18 @@ nodered-data/
 mosquitto/data/
 mosquitto/log/
 
+# Node-RED specific
+nodered-data/
+nodered/.config.json
+nodered/.config.json.backup
+nodered/.flows.json.backup
+nodered/.sessions.json
+nodered/package-lock.json
+nodered/node_modules/
+nodered/.npm/
+nodered/.node-red/
+nodered/*.backup
+
 # Grafana
 grafana-data/
 !grafana/provisioning/**

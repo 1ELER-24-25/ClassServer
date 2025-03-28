@@ -1,0 +1,71 @@
+[
+    {
+        "id": "rfid-flow",
+        "type": "tab",
+        "label": "RFID Handler",
+        "disabled": false,
+        "info": "Handles RFID card readings and user lookup"
+    },
+    {
+        "id": "mqtt-rfid-in",
+        "type": "mqtt in",
+        "z": "rfid-flow",
+        "name": "RFID Input",
+        "topic": "bruker/rfid",
+        "qos": "1",
+        "datatype": "auto",
+        "broker": "broker-1",
+        "x": 130,
+        "y": 100,
+        "wires": [["parse-message"]]
+    },
+    {
+        "id": "parse-message",
+        "type": "function",
+        "z": "rfid-flow",
+        "name": "Parse Message",
+        "func": "const parts = msg.payload.split(':');\nif (parts.length === 2) {\n    msg.deviceId = parts[0];\n    msg.cardUID = parts[1];\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "x": 320,
+        "y": 100,
+        "wires": [["db-lookup"]]
+    },
+    {
+        "id": "db-lookup",
+        "type": "postgresql-query",
+        "z": "rfid-flow",
+        "name": "Find User",
+        "query": "SELECT username FROM users WHERE rfid_uid = $1",
+        "postgreSQLConfig": "postgres-connection",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 510,
+        "y": 100,
+        "wires": [["prepare-response"]]
+    },
+    {
+        "id": "prepare-response",
+        "type": "function",
+        "z": "rfid-flow",
+        "name": "Prepare Response",
+        "func": "const response = msg.payload[0] ? msg.payload[0].username : 'Ingen bruker';\nmsg.payload = msg.deviceId + ':' + response;\nreturn msg;",
+        "outputs": 1,
+        "x": 710,
+        "y": 100,
+        "wires": [["mqtt-name-out"]]
+    },
+    {
+        "id": "mqtt-name-out",
+        "type": "mqtt out",
+        "z": "rfid-flow",
+        "name": "Name Output",
+        "topic": "bruker/navn",
+        "qos": "1",
+        "retain": false,
+        "broker": "broker-1",
+        "x": 900,
+        "y": 100,
+        "wires": []
+    }
+]

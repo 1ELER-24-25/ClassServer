@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 
+{% block title %}Serverinfo - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retro.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h1>Serverinformasjon</h1>
@@ -51,5 +57,3 @@
     </div>
 </div>
 {% endblock %}
-
-

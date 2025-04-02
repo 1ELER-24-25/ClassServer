@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Tilgjengelige Kurs - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    {# Link to the new modern stylesheet for course pages #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/courses.css') }}">
+    {# We might add a common base CSS here if needed later #}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Tilgjengelige Programmeringskurs</h1>
+
+    {# Get all flashed messages at once to clear them from session #}
+    {% set all_messages = get_flashed_messages(with_categories=true) %}
+    {% if all_messages %}
+        {# Display only the first message to avoid potential duplicates #}
+        {% set category, message = all_messages[0] %}
+        <div class="alert alert-{{ category or 'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+
+    {% if courses %}
+        <div class="list-group">
+            {% for course in courses %}
+                <a href="{{ url_for('course_detail', course_id=course.id) }}" class="list-group-item list-group-item-action flex-column align-items-start course-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1 course-title">{{ course.title }}</h5>
+                        <small class="text-muted">Språk: {{ course.language | capitalize }}</small>
+                    </div>
+                    <p class="mb-1 course-description">{{ course.description }}</p>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Ingen kurs er tilgjengelige for øyeblikket.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,158 @@
+/* courses.css - Modern styling for the programming course section */
+
+/* Apply a different base font if desired, overriding retro theme */
+body.course-page-active { /* Add this class to body in course templates if needed, or rely on specificity */
+    font-family: 'IBM Plex Mono', monospace; /* Example modern font */
+    background-color: #ffffff; /* Example: White background */
+    color: #212529; /* Dark text */
+}
+
+/* Ensure container is standard Bootstrap */
+.container {
+    max-width: 960px; /* Or your preferred width */
+}
+
+/* --- Course List Styling --- */
+.course-item {
+    border-left: 5px solid #0d6efd; /* Example accent color */
+    margin-bottom: 1rem;
+    transition: background-color 0.2s ease-in-out;
+}
+.course-item:hover {
+    background-color: #e9ecef; /* Light hover effect */
+}
+.course-title {
+    color: #0d6efd;
+}
+.course-description {
+    color: #495057;
+}
+
+/* --- Course Detail Styling --- */
+.module-item {
+    transition: background-color 0.2s ease-in-out;
+}
+.module-item:hover {
+    background-color: #f8f9fa;
+}
+.module-completed {
+    border-left: 5px solid #198754; /* Green accent for completed */
+    background-color: #f0fff4; /* Light green background */
+}
+.module-completed:hover {
+    background-color: #e0ffe8;
+}
+
+/* --- Module Detail Styling --- */
+.module-content h2 {
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+    color: #0d6efd;
+}
+
+.module-actions h5 {
+    color: #6c757d;
+    margin-bottom: 0.8rem;
+}
+
+/* Code block styling */
+pre {
+    background-color: #f8f9fa; /* Light background for code */
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto; /* Allow horizontal scrolling */
+    font-family: 'Source Code Pro', 'Fira Code', Consolas, monospace; /* Programming font */
+    font-size: 0.95em;
+    line-height: 1.5;
+    white-space: pre-wrap; /* Ensure line breaks and spaces are preserved */
+    word-wrap: break-word; /* Allow long lines to wrap */
+}
+
+pre code {
+    background-color: transparent; /* Code tag itself is transparent */
+    border: none;
+    padding: 0;
+    font-family: inherit; /* Inherit font from pre */
+    white-space: inherit; /* Inherit whitespace handling */
+    word-wrap: inherit; /* Inherit word wrap handling */
+}
+
+/* Hint styling */
+.hint-button {
+    margin-right: 5px;
+}
+.hint-text {
+    background-color: #fff3cd; /* Light yellow background for hints */
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+    padding: 10px;
+    color: #856404; /* Darker text for contrast */
+}
+
+/* Specific styling for the "Sniktitt" (Peek/Hint 4) button */
+.hint-button-peek {
+    /* Inherits .btn and .btn-sm, adding warning color */
+    font-weight: bold; /* Make it stand out a bit */
+}
+
+/* --- Diploma Styling --- */
+/* Styles moved from inline style block in diploma.html */
+.diploma-container {
+    border: 5px solid #6c757d; /* Example border */
+    padding: 40px;
+    margin-top: 30px;
+    background-color: #f8f9fa; /* Light background */
+    text-align: center;
+    max-width: 800px; /* Limit width */
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 10px; /* Added rounded corners */
+}
+.diploma-title {
+    font-family: 'Times New Roman', Times, serif; /* More formal font */
+    font-size: 2.5rem;
+    color: #212529;
+    margin-bottom: 20px;
+}
+.diploma-subtitle {
+    font-size: 1.5rem;
+    color: #495057;
+    margin-bottom: 30px;
+}
+.diploma-recipient {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #0d6efd; /* Example color */
+    margin-bottom: 15px;
+}
+.diploma-course {
+    font-size: 1.4rem;
+    font-style: italic;
+    margin-bottom: 25px;
+}
+.diploma-score, .diploma-date {
+    font-size: 1.1rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+
+/* --- Highlight.js Styling --- */
+/* Basic styling for highlighted code - relies on the theme CSS linked in templates */
+.hljs {
+    display: block;
+    overflow-x: auto;
+    padding: 0.5em;
+    background: #f8f9fa; /* Match pre background or use theme's */
+    color: #333; /* Default text color */
+}
+
+/* Add specific styles for common tokens if needed, or rely on theme */
+.hljs-keyword { color: #007bff; font-weight: bold; }
+.hljs-string { color: #28a745; }
+.hljs-number { color: #fd7e14; }
+.hljs-comment { color: #6c757d; font-style: italic; }
+.hljs-function .hljs-title { color: #dc3545; }
+.hljs-params { color: #ffc107; }

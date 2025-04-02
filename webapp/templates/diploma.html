@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Kursdiplom: {{ diploma.course_title }} - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/courses.css') }}">
+    {# Add specific diploma styles if needed, or style within courses.css #}
+    <style>
+        /* Basic diploma styling - can be moved to courses.css */
+        .diploma-container {
+            border: 5px solid #6c757d; /* Example border */
+            padding: 40px;
+            margin-top: 30px;
+            background-color: #f8f9fa; /* Light background */
+            text-align: center;
+            max-width: 800px; /* Limit width */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .diploma-title {
+            font-family: 'Times New Roman', Times, serif; /* More formal font */
+            font-size: 2.5rem;
+            color: #212529;
+            margin-bottom: 20px;
+        }
+        .diploma-subtitle {
+            font-size: 1.5rem;
+            color: #495057;
+            margin-bottom: 30px;
+        }
+        .diploma-recipient {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #0d6efd; /* Example color */
+            margin-bottom: 15px;
+        }
+        .diploma-course {
+            font-size: 1.4rem;
+            font-style: italic;
+            margin-bottom: 25px;
+        }
+        .diploma-score, .diploma-date {
+            font-size: 1.1rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('list_courses') }}">Kurs</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('course_detail', course_id=course_id) }}">{{ diploma.course_title }}</a></li> {# Need course_id passed to template #}
+            <li class="breadcrumb-item active" aria-current="page">Diplom</li>
+        </ol>
+    </nav>
+
+    <div class="diploma-container">
+        <h1 class="diploma-title">Diplom</h1>
+        <p class="diploma-subtitle">Tildeles</p>
+        
+        <p class="diploma-recipient">{{ diploma.username }}</p>
+        
+        <p>for vellykket gjennomføring av kurset</p>
+        
+        <p class="diploma-course">{{ diploma.course_title }}</p>
+        
+        <p class="diploma-score">Oppnådd poengsum: <strong>{{ diploma.score }} / 100</strong></p>
+        
+        <p class="diploma-date">Fullført dato: {{ diploma.completed_at.strftime('%d. %B %Y') if diploma.completed_at else 'Ukjent dato' }}</p>
+        
+        <hr>
+        <small>ClassServer Programmeringskurs</small>
+    </div>
+
+    <div class="text-center mt-4">
+         <a href="{{ url_for('profile') }}" class="btn btn-secondary">Tilbake til Profil</a>
+         <a href="{{ url_for('course_detail', course_id=course_id) }}" class="btn btn-info">Tilbake til Kurset</a> {# Need course_id #}
+    </div>
+
+</div>
+{% endblock %}

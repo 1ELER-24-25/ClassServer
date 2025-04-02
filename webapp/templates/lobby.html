@@ -1,28 +1,79 @@
-<div class="container">
+{% extends "base.html" %}
+
+{% block title %}Lobby - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retro.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Spillobby</h1>
     <div class="row">
         <div class="col-md-8">
-            <h2>Online Players</h2>
-            <div id="playerList">
-                <!-- Populated via WebSocket -->
+            <h2>Online Spillere</h2>
+            <div id="playerList" class="list-group">
+                <p>Laster spillere...</p>
+                {# <!-- Populated via WebSocket --> #}
             </div>
         </div>
         <div class="col-md-4">
-            <h2>Challenges</h2>
+            <h2>Utfordringer</h2>
             <div id="challengeList">
-                <!-- Incoming/outgoing challenges -->
+                <p>Ingen utfordringer...</p>
+                {# <!-- Incoming/outgoing challenges --> #}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
+{{ super() }} {# Include Bootstrap JS from base #}
 <script>
-const ws = new WebSocket('ws://localhost:5000/ws');
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'playerList') {
-        updatePlayerList(data.players);
-    } else if (data.type === 'challenge') {
-        handleChallenge(data);
+    // Placeholder for WebSocket logic
+    console.log("Lobby WebSocket connection would be established here.");
+    // const ws = new WebSocket('ws://localhost:5000/ws'); // Example
+    // ws.onmessage = (event) => {
+    //     const data = JSON.parse(event.data);
+    //     if (data.type === 'playerList') {
+    //         updatePlayerList(data.players);
+    //     } else if (data.type === 'challenge') {
+    //         handleChallenge(data);
+    //     }
+    // };
+    
+    function updatePlayerList(players) {
+        const playerListDiv = document.getElementById('playerList');
+        playerListDiv.innerHTML = ''; // Clear current list
+        if (players && players.length > 0) {
+            players.forEach(player => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                playerItem.innerHTML = `
+                    <span>${player.username} (ELO: ${player.elo || 'N/A'})</span>
+                    <button class="btn btn-sm btn-primary" onclick="challengePlayer('${player.id}')">Utfordre</button>
+                `;
+                playerListDiv.appendChild(playerItem);
+            });
+        } else {
+            playerListDiv.innerHTML = '<p>Ingen spillere online.</p>';
+        }
     }
-};
+
+    function handleChallenge(challengeData) {
+        // Logic to display incoming/outgoing challenges
+        console.log("Challenge received/updated:", challengeData);
+    }
+    
+    function challengePlayer(playerId) {
+        console.log(`Utfordrer spiller ${playerId}`);
+        // Send challenge via WebSocket
+        // ws.send(JSON.stringify({ type: 'challenge', targetPlayerId: playerId }));
+    }
+
+    // Example initial load (replace with actual WebSocket data)
+    // updatePlayerList([{id: 'user1', username: 'TestSpiller1', elo: 1550}, {id: 'user2', username: 'TestSpiller2', elo: 1480}]);
+
 </script>
+{% endblock %}

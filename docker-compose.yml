@@ -34,11 +34,18 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    user: "999:999"
+      - postgres-data:/var/lib/postgresql/data # Use the named volume
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00_init_schema.sql:ro # Schema first
+      - ./postgres/seed_data/01_python_intro.sql:/docker-entrypoint-initdb.d/01_python_intro.sql:ro # Seed file 1
+      - ./postgres/seed_data/02_arduino_morse.sql:/docker-entrypoint-initdb.d/02_arduino_morse.sql:ro # Seed file 2
+    # user: "999:999" # Removed to let the image handle internal permissions
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   nodered:
@@ -72,7 +79,8 @@ services:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy # Wait for postgres healthcheck to pass
     restart: unless-stopped
 
   adminer:
@@ -80,7 +88,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy # Wait for postgres healthcheck to pass
     restart: unless-stopped
 
   grafana:
@@ -97,14 +106,17 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_ADDR=0.0.0.0
     depends_on:
-      - influxdb
-      - postgres
+      influxdb:
+        condition: service_started # Grafana doesn't strictly need InfluxDB ready, just started
+      postgres:
+        condition: service_healthy # Wait for postgres healthcheck to pass
     restart: unless-stopped
 
+# Define named volumes so 'down -v' can remove them
 volumes:
-  influxdb-data:
+  postgres-data: # Define the volume used by postgres
     driver: local
-  postgres-data:
+  influxdb-data:
     driver: local
   nodered-data:
     driver: local

@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 
+{% block title %}Virtuelt Sjakkbrett - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retro.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chessboard-1.0.0.min.css') }}">
+{% endblock %}
+
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chessboard-1.0.0.min.css') }}">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="{{ url_for('static', filename='js/chess.js') }}"></script>
-<script src="{{ url_for('static', filename='js/chessboard-1.0.0.min.js') }}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+{# Scripts moved to bottom, keeping extra_head for potential future use #}
 {% endblock %}
 
 {% block content %}
@@ -56,8 +59,9 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// JavaScript-koden forblir uendret siden den ikke vises for brukeren
-{{ super() }}
-</script>
+{{ super() }} {# Include Bootstrap JS from base #}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ url_for('static', filename='js/chess.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chessboard-1.0.0.min.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 {% endblock %}

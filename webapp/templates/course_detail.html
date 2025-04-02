@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/courses.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('list_courses') }}">Kurs</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ course.title }}</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-3">{{ course.title }}</h1>
+    <p class="lead">{{ course.description }}</p>
+    <p><strong>Språk:</strong> {{ course.language | capitalize }}</p>
+
+    <hr>
+
+    <h2 class="mb-3">Moduler</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if modules %}
+        <div class="list-group">
+            {% for module in modules %}
+                {% set module_status = module_statuses.get(module.id, 'not_started') %}
+                <a href="{{ url_for('module_detail', course_id=course.id, module_id=module.id) }}" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center module-item {% if module_status == 'completed' %}module-completed{% endif %}">
+                    <span>
+                        <strong>Modul {{ module.order_num }}:</strong> {{ module.title }}
+                    </span>
+                    {% if module_status == 'completed' %}
+                        <span class="badge bg-success rounded-pill">Fullført</span>
+                    {% elif module_status == 'in_progress' %}
+                         <span class="badge bg-warning text-dark rounded-pill">Påbegynt</span>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Ingen moduler funnet for dette kurset.</p>
+    {% endif %}
+
+    {# Optional: Add button to view diploma if course is completed #}
+    {% if user_progress and user_progress.status == 'completed' %}
+        <div class="mt-4">
+            <a href="{{ url_for('diploma', course_id=course.id) }}" class="btn btn-primary">Se Diplom</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

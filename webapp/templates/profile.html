@@ -1,7 +1,26 @@
 {% extends "base.html" %}
 
+{% block title %}Min Profil - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    {# Ensure this page uses the default retro stylesheet #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/retro.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
+    {# Display flashed messages if any #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <div class="row">
         <div class="col-md-4">
             <div class="card">
@@ -35,6 +54,33 @@
                     </p>
                 </div>
             </div>
+
+            {# New Section for Completed Courses/Diplomas #}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Mine Diplomer</h5>
+                </div>
+                <div class="card-body">
+                    {% if completed_courses %}
+                        <ul class="list-group list-group-flush">
+                            {% for course in completed_courses %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ course.title }}</strong><br>
+                                        <small class="text-muted">Poeng: {{ course.score }}/100 | Fullført: {{ course.completed_at.strftime('%d.%m.%Y') if course.completed_at else 'N/A' }}</small>
+                                    </div>
+                                    <a href="{{ url_for('diploma', course_id=course.id) }}" class="btn btn-sm btn-outline-primary">Vis Diplom</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="card-text">Du har ikke fullført noen kurs ennå.</p>
+                        <a href="{{ url_for('list_courses') }}" class="btn btn-sm btn-info">Se tilgjengelige kurs</a>
+                    {% endif %}
+                </div>
+            </div>
+             {# End New Section #}
+
         </div>
 
         <div class="col-md-8">

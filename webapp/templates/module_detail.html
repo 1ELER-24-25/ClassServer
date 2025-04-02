@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Modul {{ module.order_num }}: {{ module.title }} - ClassServer{% endblock %}
+
+{% block page_stylesheets %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/courses.css') }}">
+    {# Link Highlight.js CSS (replace with actual path if downloaded) #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css"> 
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('list_courses') }}">Kurs</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('course_detail', course_id=course_id) }}">{{ module.course_title if module.course_title else 'Kursdetaljer' }}</a></li> {# Assuming course_title is passed or fetched #}
+            <li class="breadcrumb-item active" aria-current="page">Modul {{ module.order_num }}</li> {# Simplified breadcrumb #}
+        </ol>
+    </nav>
+
+    <h1 class="mb-3">Modul {{ module.order_num }}: {{ module.title }}</h1>
+    
+    <div class="module-content mb-4">
+        <h2>Beskrivelse</h2>
+        <p>{{ module.description | safe }}</p> {# Use safe if description contains HTML #}
+        
+        {% if module.content %}
+        <h2>Kode / Innhold</h2>
+        {# Use pre and code tags for code content, add language class for highlighter #}
+        <pre><code class="language-{{ module.language | default('plaintext') }}">{{ module.content }}</code></pre>
+        {% endif %}
+    </div>
+
+    <div class="module-actions mb-4">
+        {# Documentation Links #}
+        {% if doc_links %}
+            <div class="mb-3">
+                <h5>Nyttige Lenker</h5>
+                <ul>
+                    {% for link in doc_links %}
+                        <li><a href="{{ link.url }}" target="_blank">{{ link.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        {# Hints Section #}
+        <div class="mb-3">
+            <h5>Hint (-5 poeng per hint)</h5>
+            <div id="hints-container">
+                {% set hints_used = user_module_progress.hints_used_mask %}
+                {# Display Hints 1-3 only if they exist in available_hints #}
+                {% for i in range(1, 4) %}
+                    {% if i in available_hints %}
+                        {% set hint_bit = 2**(i - 1) %}
+                        <div class="hint mb-2">
+                            <button class="btn btn-sm btn-outline-secondary hint-button"
+                                    data-hint-number="{{ i }}"
+                                    data-api-url="{{ url_for('get_hint', course_id=course_id, module_id=module.id, hint_number=i) }}"
+                                    {% if (hints_used // hint_bit) % 2 == 1 %}disabled{% endif %}> {# Mathematical check #}
+                                Vis Hint {{ i }} {% if (hints_used // hint_bit) % 2 == 1 %}(Brukt){% endif %} {# Mathematical check #}
+                            </button>
+                            <div id="hint-text-{{ i }}" class="hint-text mt-1" style="display: none;">
+                                {# Hint text will be loaded here by JS #}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+             <div id="hint-error" class="text-danger mt-1" style="display: none;"></div>
+        </div>
+
+        {# Sniktitt Section (Hint 4) - Placed separately #}
+        {# Only show if hint 4 exists for this module AND it's not module 1 #}
+        {% if 4 in available_hints and module.order_num > 1 %}
+        <div class="mb-3 mt-4 peek-section">
+             <h5>Sniktitt på Forrige Modul (-10 poeng)</h5>
+             {% set peek_hint_bit = 8 %} {# Bit 3 for hint 4 #}
+             <div class="hint mb-2">
+                 <button class="btn btn-sm btn-warning hint-button hint-button-peek" {# Added peek class #}
+                         data-hint-number="4"
+                         data-api-url="{{ url_for('get_hint', course_id=course_id, module_id=module.id, hint_number=4) }}"
+                         {% if (hints_used // peek_hint_bit) % 2 == 1 %}disabled{% endif %}> {# Mathematical check #}
+                     Vis Kode Fra Forrige Modul {% if (hints_used // peek_hint_bit) % 2 == 1 %}(Brukt){% endif %} {# Mathematical check #}
+                 </button>
+                 <div id="hint-text-4" class="hint-text mt-1" style="display: none;">
+                     {# Hint text (previous code) will be loaded here by JS #}
+                 </div>
+             </div>
+             <div id="peek-error" class="text-danger mt-1" style="display: none;"></div> {# Separate error div if needed #}
+        </div>
+        {% endif %}
+
+
+        {# Completion Button #}
+        {% if user_module_progress.status != 'completed' %}
+            <form action="{{ url_for('complete_module', course_id=course_id, module_id=module.id) }}" method="POST">
+                 {# Add CSRF token if using Flask-WTF #}
+                 {# {{ form.csrf_token }} #}
+                <button type="submit" class="btn btn-success">Merk som Fullført</button>
+            </form>
+        {% else %}
+            <p class="text-success"><strong>Du har fullført denne modulen!</strong></p>
+            {# Add links for navigation after completion #}
+            <div class="mt-2">
+                <a href="{{ url_for('course_detail', course_id=course_id) }}" class="btn btn-sm btn-secondary">Tilbake til Kursoversikt</a>
+                {% if next_module_id %}
+                    <a href="{{ url_for('module_detail', course_id=course_id, module_id=next_module_id) }}" class="btn btn-sm btn-primary">Gå til Neste Modul</a>
+                {% else %}
+                    {# Optionally link to diploma if it's the last module #}
+                    <a href="{{ url_for('diploma', course_id=course_id) }}" class="btn btn-sm btn-success">Se Diplom</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+    {# Include Highlight.js JS (replace with actual path if downloaded) #}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    {# Include specific languages if needed, e.g., python #}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/python.min.js"></script> 
+    
+    {# Initialize Highlighter #}
+    <script>hljs.highlightAll();</script>
+
+    {# Custom JS for Hints #}
+    <script src="{{ url_for('static', filename='js/courses.js') }}"></script>
+{% endblock %}

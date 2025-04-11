@@ -6,7 +6,7 @@
                 "view-store-position": false,
                 "view-show-grid": true,
                 "view-snap-grid": true,
-                "view-grid-size": 20,
+                "view-grid-size": "20",
                 "view-node-status": true,
                 "view-node-show-label": true,
                 "view-show-tips": true,
@@ -26,17 +26,21 @@
             "user": {
                 "name": "Ask",
                 "email": "askravndal@elev.rogfk.no"
+            },
+            "workflow": {
+                "mode": "manual"
             }
         },
         "menu-menu-item-sidebar": true,
         "debug": {
-            "filter": "filterCurrent",
+            "filter": "filterSelected",
             "filteredNodes": [
                 "c3db4d311082ec85",
                 "debug-chat",
                 "91bd42e5a25e6fe4",
                 "8e01fb8de368f996",
-                "f06b291857ed5004"
+                "f06b291857ed5004",
+                "4211c6694cc30247"
             ],
             "clearType": "all"
         },
